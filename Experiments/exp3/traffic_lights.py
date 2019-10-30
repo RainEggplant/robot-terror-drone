@@ -6,6 +6,8 @@ import numpy as np
 import time
 import math
 import threading
+
+sys.path.append('../..')
 import PWMServo
 
 print('''
@@ -131,19 +133,19 @@ def runAction():
     while True:
         if get_color:
             if color_max == 'red':
-                PWMServo.setServo(1, 2000, 500)
+                #PWMServo.setServo(1, 2000, 500)
                 time.sleep(0.6)
-                PWMServo.setServo(1, 1000, 500)
+                #PWMServo.setServo(1, 1000, 500)
                 time.sleep(0.6)
-                PWMServo.setServo(1, 1500, 500)
+                #PWMServo.setServo(1, 1500, 500)
                 time.sleep(0.6)
                 get_color = False
             elif color_max == 'green' or color_max == 'blue':
-                PWMServo.setServo(2, 2000, 500)
+                #PWMServo.setServo(2, 2000, 500)
                 time.sleep(0.6)
-                PWMServo.setServo(2, 1000, 500)
+                #PWMServo.setServo(2, 1000, 500)
                 time.sleep(0.6)
-                PWMServo.setServo(2, 1500, 500)
+                #PWMServo.setServo(2, 1500, 500)
                 time.sleep(0.6)
                 get_color = False
             else:
@@ -160,8 +162,8 @@ th2.start()
 #颜色的字典
 color_range = {'red': [(0,43,46), (6, 255, 255)],
               'blue': [(110,43,46), (124, 255,255)],
-              'green': [(45,43,46), (77, 255, 255)],
-              'yellow': [(36, 43, 46), (44, 255, 255)]
+              'green': [(54,43,46), (77, 255, 255)],
+              'yellow': [(30, 43, 46), (50, 255, 255)]
               }
 
 range_rgb = {'red': (0, 0, 255),
