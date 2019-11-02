@@ -6,6 +6,7 @@ import time
 import numpy as np
 import sys
 import cv2
+
 sys.path.append('../..')
 import PWMServo
 import Serial_Servo_Running as SSR
@@ -137,21 +138,26 @@ color_max = None
 def runAction():
     global get_color
     global color_max
+    is_walking = False
     while True:
         if get_color:
             if color_max == 'red':
+                is_walking = False
                 time.sleep(0.01)
                 get_color = False
             elif color_max == 'green':
+                is_walking = True
                 SSR.running_action_group('custom/walk', 1)
                 time.sleep(0.4)
                 get_color = False
-            elif color_max == 'yellow':
-                time.sleep(0.01)
-                get_color = False
             else:
                 get_color = False
-                time.sleep(0.01)
+                if is_walking:
+                    SSR.running_action_group('custom/walk', 1)
+                    time.sleep(0.4)
+                else:
+                    time.sleep(0.01)
+
         else:
             time.sleep(0.01)
 
