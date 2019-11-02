@@ -146,15 +146,21 @@ def runAction():
                 get_color = False
             elif color_max == 'green':
                 is_walking = True
-                SSR.running_action_group('custom/walk', 1)
+                # SSR.running_action_group('custom/walk', 1)
+                get_color = False
+            elif color_max == 'black':
+                is_walking = False
+                # SSR.running_action_group('custom/walk', 1)
                 get_color = False
             else:
                 get_color = False
                 if is_walking:
-                    SSR.running_action_group('custom/walk', 1)
+                    pass
+                    # SSR.running_action_group('custom/walk', 1)
         else:
             if is_walking:
-                SSR.running_action_group('custom/walk', 1)
+                pass
+                # SSR.running_action_group('custom/walk', 1)
 
         time.sleep(0.01)
 
@@ -167,12 +173,14 @@ th2.start()
 # 颜色的字典
 color_range = {'red': [(0, 43, 46), (6, 255, 255)],
                'green': [(54, 43, 46), (77, 255, 255)],
-               'yellow': [(30, 43, 46), (50, 255, 255)]
+               'yellow': [(30, 43, 46), (50, 255, 255)],
+               'black': [(0, 0, 0), (255, 255, 30)]
                }
 
 range_rgb = {'red': (0, 0, 255),
              'green': (0, 255, 0),
-             'yellow': (255, 255, 0)
+             'yellow': (255, 255, 0),
+             'black': (255, 255, 255)
              }
 
 while True:
@@ -236,6 +244,11 @@ while True:
             elif color_max == 'yellow':  # 黄色最大
                 Color_BGR = range_rgb["yellow"]
                 # print("yellow")
+                if get_color is False:
+                    get_color = True
+            elif color_max == 'black':  # 黑色最大
+                Color_BGR = range_rgb["black"]
+                # print("black")
                 if get_color is False:
                     get_color = True
             else:
