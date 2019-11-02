@@ -6,8 +6,9 @@ import time
 import numpy as np
 import sys
 import cv2
-import PWMServo
 sys.path.append('../..')
+import PWMServo
+import Serial_Servo_Running as SSR
 
 
 print('''
@@ -142,7 +143,7 @@ def runAction():
                 time.sleep(0.01)
                 get_color = False
             elif color_max == 'green':
-                SSR.run_action('custom/walk')
+                SSR.running_action_group('custom/walk', 1)
                 time.sleep(0.4)
                 get_color = False
             elif color_max == 'yellow':
