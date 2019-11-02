@@ -143,23 +143,20 @@ def runAction():
         if get_color:
             if color_max == 'red':
                 is_walking = False
-                time.sleep(0.01)
                 get_color = False
             elif color_max == 'green':
                 is_walking = True
                 SSR.running_action_group('custom/walk', 1)
-                time.sleep(0.4)
                 get_color = False
             else:
                 get_color = False
                 if is_walking:
                     SSR.running_action_group('custom/walk', 1)
-                    time.sleep(0.4)
-                else:
-                    time.sleep(0.01)
-
         else:
-            time.sleep(0.01)
+            if is_walking:
+                SSR.running_action_group('custom/walk', 1)
+        
+        time.sleep(0.01)
 
 
 # 启动动作运行子线程
