@@ -139,16 +139,14 @@ def runAction():
     while True:
         if get_color:
             if color_max == 'red':
-                pass
-                time.sleep(0.1)
+                time.sleep(0.01)
                 get_color = False
             elif color_max == 'green':
-                pass
-                time.sleep(0.1)
+                SSR.run_action('custom/walk')
+                time.sleep(0.4)
                 get_color = False
             elif color_max == 'yellow':
-                pass
-                time.sleep(0.1)
+                time.sleep(0.01)
                 get_color = False
             else:
                 get_color = False
