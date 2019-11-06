@@ -18,7 +18,7 @@ debug = 1
 Running = True
 stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 #cap = cv2.VideoCapture(stream)
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(stream)
 
 orgFrame = None
 
