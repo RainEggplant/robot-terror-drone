@@ -329,16 +329,7 @@ while True:
                         else:
                             pass
                         
-                    contour_to_show_colors = []
-                    for c_l in contour_to_show_labels:
-                        if c_l == "b":
-                            contour_to_show_colors.append((0, 0, 255))
-                        elif c_l == "c":
-                            contour_to_show_colors.append((0, 255, 0))
-                        else:
-                            contour_to_show_colors.append((255, 255, 255))
-                    cv2.drawContours(orgframe, contour_to_show_shapes, -1, contour_to_show_colors)
-            ###
+                    ###
 
             cv2.imshow("orgframe", orgframe)
             cv2.waitKey(1)
