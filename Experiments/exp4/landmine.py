@@ -254,7 +254,11 @@ while True:
             c_shapes, c_labels = getContour(contours)
             if c_shapes:
                 contours_read = 1
+<<<<<<< HEAD
                 for c_s, c_l in zip(c_shapes, c_labels):
+=======
+                for c_s, c_l in c_shapes, c_labels:
+>>>>>>> cc83a97671c2199b30b8da69d1b0675026f4e98b
                     contour_shapes.append(c_s)
                     contour_labels.append(c_l)
                     contour_color_max.append(i)
@@ -274,12 +278,20 @@ while True:
             if contours_read:
                 contour_to_show_shapes = []
                 contour_to_show_labels = []
+<<<<<<< HEAD
                 for c_s, c_l, c_c in zip(contour_shapes, contour_labels, contour_color_max):
+=======
+                for c_s, c_l, c_c in contour_shapes, contour_labels, contour_color_max:
+>>>>>>> cc83a97671c2199b30b8da69d1b0675026f4e98b
                     if c_c == 'black':
                         contour_to_show_shapes.append(c_s)
                         contour_to_show_labels.append(c_l)
             ###
+<<<<<<< HEAD
 
+=======
+            pass
+>>>>>>> cc83a97671c2199b30b8da69d1b0675026f4e98b
             if color_max == 'red':  # 红色最大
                 # print("red")
                 Color_BGR = range_rgb["red"]
@@ -320,6 +332,7 @@ while True:
             # 边界的轮廓用红色，棋子的轮廓用绿色
             if contours_read:
                 if contour_to_show_shapes:
+<<<<<<< HEAD
                     for c_s, c_l in zip(contour_to_show_shapes, contour_to_show_labels):
                         if c_l == "b":
                             cv2.drawContours(orgframe, c_s, -1, (0, 0, 255))
@@ -329,6 +342,17 @@ while True:
                             pass
                         
                         
+=======
+                    contour_to_show_colors = []
+                    for c_l in contour_to_show_labels:
+                        if c_l == "b":
+                            contour_to_show_colors.append((0, 0, 255))
+                        elif c_l == "c":
+                            contour_to_show_colors.append((0, 255, 0))
+                        else:
+                            contour_to_show_colors.append((255, 255, 255))
+                    cv2.drawContours(orgframe, contour_to_show_shapes, -1, contour_to_show_colors)
+>>>>>>> cc83a97671c2199b30b8da69d1b0675026f4e98b
             ###
 
             cv2.imshow("orgframe", orgframe)
