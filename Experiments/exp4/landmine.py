@@ -14,28 +14,12 @@ import Serial_Servo_Running as SSR
 
 print('''
 **********************************************************
-***功能:分辨出红, 绿, 黄, 然后根据分辨出的颜色作出对应动作***
+**************功能: 响应红绿灯，并通过地雷阵。**************
 **********************************************************
-----------------------------------------------------------
-Official website:http://www.lobot-robot.com/pc/index/index
-Online mall:https://lobot-zone.taobao.com/
-----------------------------------------------------------
-以下指令均需在LX终端使用，LX终端可通过ctrl+alt+t打开，或点
-击上栏的黑色LX终端图标。
 ----------------------------------------------------------
 Usage:
   -d | --显示摄像头图像，并将识别的颜色对应的物体圈出
   -n | --不显示摄像头图像
-----------------------------------------------------------
-Example #1:
- 显示图像,圈出识别到的对应颜色端物体，并作出动作
-  python3 cv_color_stream.py -d
-----------------------------------------------------------
-Example #2:
- 不显示图像，根据识别的颜色作出动作
-  python3 cv_color_stream.py -n
-----------------------------------------------------------
-Version: --V2.2  2019/05/24
 ----------------------------------------------------------
 Tips:
  * 按下Ctrl+C可中断此次程序运行
@@ -109,6 +93,27 @@ def getAreaMaxContour(contours):
                 area_max_contour = c
 
     return area_max_contour, contour_area_max  # 返回最大的轮廓
+
+###
+def getContour(contours):
+    contour_area_temp = 0
+    contour_area_max = 0
+    area_max_contour = None
+    contour_labels = []
+    contour_shapes = []
+
+    for c in contours:  # 历遍所有轮廓
+        contour_area_temp = math.fabs(cv2.contourArea(c))  # 计算轮廓面积
+        if(contour_area_temp < 300):
+            continue
+        contour_shapes.append(c)
+        contour_center, contour_radius = cv2.minEnclosingCircle(c)
+        if(contour_area_temp / (math.pi * contour_radius ** 2) >= 0.5):
+            contour_labels.append("c") # chess
+        else:
+            contour_labels.append("b") # border
+    return contour_shapes, contour_labels  # 返回最大的轮廓
+###
 
 
 def get_image():
@@ -198,13 +203,16 @@ while True:
         # 合并三个通道
         Frame = cv2.merge((h, s, v))
 
-        color_list = []
         rad = 0
         areaMaxContour = 0
         max_area = 0
         area_max = 0
         centerX = 0
         centerY = 0
+        contour_shapes = []
+        contour_labels = []
+        contour_color_max = []
+        contours_read = 0
 
         for i in color_range:
             frame = cv2.inRange(
@@ -217,13 +225,27 @@ while True:
                 closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
             areaMaxContour, area_max = getAreaMaxContour(contours)  # 找出最大轮廓
 
+           
+
             if areaMaxContour is not None:
                 if area_max > max_area:  # 找最大面积
                     max_area = area_max
                     color_max = i
                     areaMaxContour_max = areaMaxContour
 
-        if max_area != 0:
+            ### 
+            # 记录所有的棋子或者边界的轮廓信息
+            c_shapes, c_labels = getContour(contours)
+            if c_shapes:
+                contours_read = 1
+                for c_s, c_l in c_shapes, c_labels:
+                    contour_shapes.append(c_s)
+                    contour_labels.append(c_l)
+                    contour_color_max.append(i)
+            ###
+                
+
+        if max_area != 0 :
             ((centerX, centerY), rad) = cv2.minEnclosingCircle(
                 areaMaxContour_max)  # 获取最小外接圆
             centerX, centerY, rad = int(centerX), int(
@@ -231,6 +253,17 @@ while True:
             cv2.circle(orgframe, (centerX, centerY),
                        rad, (0, 255, 0), 2)  # 画出圆心
 
+            ###
+            # 把所有内容为黑色的轮廓提取
+            if contours_read:
+                contour_to_show_shapes = []
+                contour_to_show_labels = []
+                for c_s, c_l, c_c in contour_shapes, contour_labels, contour_color_max:
+                    if c_c == 'black':
+                        contour_to_show_shapes.append(c_s)
+                        contour_to_show_labels.append(c_c)
+            ###
+            pass
             if color_max == 'red':  # 红色最大
                 # print("red")
                 Color_BGR = range_rgb["red"]
@@ -266,6 +299,22 @@ while True:
                                                           orgframe.shape[0] - 35), cv2.FONT_HERSHEY_SIMPLEX, 0.65, Color_BGR, 2)
             cv2.putText(orgframe, "fps:" + str(int(fps)),
                         (10, orgframe.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 0, 255), 2)  # (0, 0, 255)BGR
+
+            ###
+            # 边界的轮廓用红色，棋子的轮廓用绿色
+            if contours_read:
+                if contour_to_show_shapes:
+                    contour_to_show_colors = []
+                    for c_l in contour_to_show_labels:
+                        if c_l == "b":
+                            contour_to_show_colors.append((0, 0, 255))
+                        elif c_l == "c":
+                            contour_to_show_colors.append((0, 255, 0))
+                        else:
+                            contour_to_show_colors.append((255, 255, 255))
+                    cv2.drawContours(orgframe, contour_to_show_shapes, -1, contour_to_show_colors)
+            ###
+
             cv2.imshow("orgframe", orgframe)
             cv2.waitKey(1)
     else:
