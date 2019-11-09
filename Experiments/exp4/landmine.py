@@ -275,7 +275,6 @@ while True:
                 contour_to_show_shapes = []
                 contour_to_show_labels = []
                 for c_s, c_l, c_c in zip(contour_shapes, contour_labels, contour_color_max):
-                for c_s, c_l, c_c in contour_shapes, contour_labels, contour_color_max:
                     if c_c == 'black':
                         contour_to_show_shapes.append(c_s)
                         contour_to_show_labels.append(c_l)
