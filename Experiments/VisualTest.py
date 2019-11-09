@@ -26,7 +26,7 @@ orgFrame = None
 deflection_angle = 0
 
 # The value must be modified according to how the camera base was placed
-PWMServo.setServo(1, 1500, 500)
+PWMServo.setServo(1, 2000, 500)
 PWMServo.setServo(2, 1500, 500)  # Same as above
 
 #SSR.running_action_group('1', 5)
@@ -45,3 +45,4 @@ if orgFrame is not None and ret:
 else:
     print('orgFrame read error\n')
 print(ret)
+input()
