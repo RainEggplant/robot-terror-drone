@@ -8,6 +8,7 @@ import time
 import threading
 import math
 import sys
+from datetime import datetime
 
 sys.path.append('..')  # nopep8
 import Serial_Servo_Running as SSR
@@ -17,7 +18,6 @@ import PWMServo
 debug = 1
 Running = True
 stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
-#cap = cv2.VideoCapture(stream)
 cap = cv2.VideoCapture(stream)
 
 orgFrame = None
@@ -26,9 +26,10 @@ orgFrame = None
 deflection_angle = 0
 
 # The value must be modified according to how the camera base was placed
-PWMServo.setServo(1, 2000, 500)
-PWMServo.setServo(2, 1500, 500)  # Same as above
-
+PWMServo.setServo(1, 1800, 600)  #up and down up-little
+time.sleep(0.8)
+PWMServo.setServo(2, 1500, 600)  # Same as above
+time.sleep(0.8)
 #SSR.running_action_group('1', 5)
 
 if Running:
@@ -39,10 +40,13 @@ if Running:
         print('cap not open\n')
 
 if orgFrame is not None and ret:
-    np.save('captured', orgFrame)
+    filename = 'captured/' + datetime.now().strftime('%y-%m-%d_%H_%M_%S')
+    np.save(filename, orgFrame)
+    cv2.imwrite(filename+'.jpg', orgFrame)
     cv2.imshow('orgFrame', orgFrame)  # 显示图像
     cv2.waitKey(1)
 else:
     print('orgFrame read error\n')
 print(ret)
+print('Press Enter to exit')
 input()
