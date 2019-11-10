@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import math
 import numpy as np
-# import matplotlib.pyplot as plt
 import cv2
 from functools import reduce
+from matplotlib import pyplot as plt
 
 # %% 常数定义
 IMG_WIDTH = 320
@@ -36,6 +36,9 @@ class ImageProcessor(object):
         self.stream = stream
         self.cap = cv2.VideoCapture(stream)
         self.debug_on = debug_on
+        if debug_on:
+            self.monitor = plt.figure()
+            plt.ion()
 
     def __del__(self):
         self.cap.release()
@@ -44,7 +47,7 @@ class ImageProcessor(object):
 
     def get_frame(self):
         if self.cap.isOpened():
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
             return frame
         raise RuntimeError('Cannot open camera')
 
@@ -113,7 +116,7 @@ class ImageProcessor(object):
         merged_frame = cv2.merge((h, s, v))
 
         # %% 寻找颜色轮廓
-        # img_contour = img
+        img_contour = img
         contours = {}
         for i in COLOR_RANGE:
             frame = cv2.inRange(
@@ -123,7 +126,7 @@ class ImageProcessor(object):
             closed = cv2.morphologyEx(
                 opened, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))  # 闭运算
             # 注意此处 opencv 2 的返回值是三元元组
-            (contours[i], hierarchy) = cv2.findContours(
+            (img, contours[i], hierarchy) = cv2.findContours(
                 closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
 
             # %% 取面积高于阈值的轮廓
@@ -134,14 +137,13 @@ class ImageProcessor(object):
             ))
 
             # %%显示轮廓
-            # if self.debug_on:
-            #     img_contour = cv2.drawContours(
-            #         img_contour, contours[i], -1, (255, 255, 255), 2)
+            if self.debug_on:
+                img_contour = cv2.drawContours(
+                    img_contour, contours[i], -1, (255, 255, 255), 2)
 
-        # if self.debug_on:
-        #     plt.figure()
-        #     plt.imshow(img_contour)
-        #     plt.show()
+        if self.debug_on:
+            plt.imshow(img_contour)
+            plt.show()
 
         return contours
 
@@ -165,5 +167,5 @@ class ImageProcessor(object):
 
         info['light'] = {}
         for i in contours:
-            if (len(contour[i]) > 0 and i != 'black'):
+            if (len(contours[i]) > 0 and i != 'black'):
                 info['light'].append(i)

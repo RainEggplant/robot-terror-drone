@@ -41,3 +41,5 @@ else:
 
 stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 img_proc = ImageProcessor(stream, DEBUG)
+data = img_proc.get_objects_info()
+print(data)
