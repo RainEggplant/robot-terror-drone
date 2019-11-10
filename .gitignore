@@ -105,3 +105,7 @@ venv.bak/
 
 # vscode settings
 .vscode/settings.json
+
+# captured images
+Experiments/captured/
+

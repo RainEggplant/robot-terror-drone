@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 from functools import reduce
 from matplotlib import pyplot as plt
+from matplotlib.colors import hsv_to_rgb
 
 # %% 常数定义
 IMG_WIDTH = 320
@@ -57,7 +58,9 @@ class ImageProcessor(object):
         # 轮廓面积与最小外接圆面积之比
         ((centerX, centerY), radius) = cv2.minEnclosingCircle(contour)
         area_ratio = cv2.contourArea(contour) / (math.pi * radius ** 2)
-        # print(area_ratio)
+        if self.debug_on:
+            print(area_ratio)
+            
         if area_ratio >= LANDMINE_AREA_RATIO_THRESHOLD:
             return 'landmine'
         elif area_ratio < LANDMINE_AREA_RATIO_THRESHOLD:
@@ -126,7 +129,7 @@ class ImageProcessor(object):
             closed = cv2.morphologyEx(
                 opened, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))  # 闭运算
             # 注意此处 opencv 2 的返回值是三元元组
-            (img, contours[i], hierarchy) = cv2.findContours(
+            (image, contours[i], hierarchy) = cv2.findContours(
                 closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
 
             # %% 取面积高于阈值的轮廓
@@ -142,7 +145,7 @@ class ImageProcessor(object):
                     img_contour, contours[i], -1, (255, 255, 255), 2)
 
         if self.debug_on:
-            plt.imshow(img_contour)
+            plt.imshow(cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
             plt.show()
 
         return contours
@@ -165,7 +168,13 @@ class ImageProcessor(object):
                 if x_brink > 0:
                     info['brink'].append((x_brink, FRONT_THRESHOLD))
 
-        info['light'] = {}
+        info['light'] = []
         for i in contours:
+            if self.debug_on:
+                print(i + ' ' + str(len(contours[i])))
+                
             if (len(contours[i]) > 0 and i != 'black'):
                 info['light'].append(i)
+                
+        return info
+    
