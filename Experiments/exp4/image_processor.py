@@ -68,39 +68,6 @@ class ImageProcessor(object):
         else:
             return 'unrecognized'
 
-    # %% 判断是否允许行走
-    def can_move_forward(self, contours):
-        can_move_forward = True
-        reason = 'safe'
-
-        hasRed = len(contours['red']) > 0 and reduce(
-            lambda x, y: x and cv2.contourArea(y) > MIN_COLORED_LIGHT_AREA,
-            contours['red'])
-        hasGreen = len(contours['green']) > 0 and reduce(
-            lambda x, y: x and cv2.contourArea(y) > MIN_COLORED_LIGHT_AREA,
-            contours['green'])
-        hasYellow = len(contours['yellow']) > 0 and reduce(
-            lambda x, y: x and cv2.contourArea(y) > MIN_COLORED_LIGHT_AREA,
-            contours['yellow'])
-        if hasRed:
-            reason = 'red_light'
-            can_move_forward = False
-
-        for contour in contours['black']:
-            object_type = self.determine_object_type(contour)
-            if object_type == 'landmine':
-                bottom_most = tuple(contour[contour[:, :, 1].argmax()][0])
-                left_most = tuple(contour[contour[:, :, 0].argmin()][0])
-                right_most = tuple(contour[contour[:, :, 0].argmax()][0])
-                if (bottom_most[1] >= FRONT_THRESHOLD and
-                    left_most[0] >= LEFT_THRESHOLD and
-                        right_most[0] >= RIGHT_THRESHOLD):
-                    reason = 'landmine'
-                    can_move_forward = False
-                    break
-
-        return can_move_forward, reason
-
     # %% 图像处理
     def get_contours(self, img):
         # 摄像头默认分辨率 640x480,
