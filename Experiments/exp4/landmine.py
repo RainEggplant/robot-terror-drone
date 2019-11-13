@@ -8,6 +8,7 @@ import numpy as np
 import sys
 import cv2
 from image_processor import ImageProcessor
+from action_planning import ActionPlanning
 
 sys.path.append('../..')  # nopep8
 import Serial_Servo_Running as SSR
@@ -42,6 +43,8 @@ else:
 stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 img_proc = ImageProcessor(stream, DEBUG)
 data = img_proc.get_objects_info()
+act_plan = ActionPlanning(data)
+act_plan.plan_action()
 print(data)
 print('Press Enter to exit.')
 input()
