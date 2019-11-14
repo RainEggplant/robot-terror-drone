@@ -2,9 +2,7 @@
 import math
 import numpy as np
 import cv2
-from functools import reduce
 from matplotlib import pyplot as plt
-from matplotlib.colors import hsv_to_rgb
 
 # %% 常数定义
 IMG_WIDTH = 320
@@ -38,8 +36,10 @@ class ImageProcessor(object):
         self.cap = cv2.VideoCapture(stream)
         self.debug_on = debug_on
         if debug_on:
-            self.monitor = plt.figure()
             plt.ion()
+            self.monitor = plt.figure()
+            self.monitor_frame = None
+            plt.show()
 
     def __del__(self):
         self.cap.release()
@@ -60,7 +60,7 @@ class ImageProcessor(object):
         area_ratio = cv2.contourArea(contour) / (math.pi * radius ** 2)
         if self.debug_on:
             print(area_ratio)
-            
+
         if area_ratio >= LANDMINE_AREA_RATIO_THRESHOLD:
             return 'landmine'
         elif area_ratio < LANDMINE_AREA_RATIO_THRESHOLD:
@@ -112,8 +112,14 @@ class ImageProcessor(object):
                     img_contour, contours[i], -1, (255, 255, 255), 2)
 
         if self.debug_on:
-            plt.imshow(cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
-            plt.show()
+            if self.monitor_frame is None:
+                self.monitor_frame = plt.imshow(
+                    cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
+            else:
+                self.monitor_frame.set_data(
+                    cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
+            self.monitor.canvas.draw()
+            self.monitor.canvas.flush_events()
 
         return contours
 
@@ -139,9 +145,8 @@ class ImageProcessor(object):
         for i in contours:
             if self.debug_on:
                 print(i + ' ' + str(len(contours[i])))
-                
+
             if (len(contours[i]) > 0 and i != 'black'):
                 info['light'].append(i)
-                
+
         return info
-    
