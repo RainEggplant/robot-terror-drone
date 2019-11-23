@@ -14,14 +14,15 @@ LEFT_THRESHOLD = 50
 RIGHT_THRESHOLD = 50
 MIN_LANDMINE_AREA = 200
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
-BRINK_RATIO_THREHOLD = 0.2
+LINE_AREA_RATIO_THRESHOLD=0.6
+BRINK_RATIO_THREHOLD = 0.15
 MIN_COLORED_LIGHT_AREA = 5000
 
 # 颜色的字典
 COLOR_RANGE = {'red': [(0, 43, 46), (6, 255, 255)],
                'green': [(54, 43, 46), (77, 255, 255)],
                'yellow': [(30, 43, 46), (50, 255, 255)],
-               'black': [(0, 0, 0), (255, 255, 6)]
+               'black': [(0, 0, 0), (255, 255, 3)]
                }
 
 RANGE_RGB = {'red': (0, 0, 255),
@@ -38,13 +39,15 @@ class ImageProcessor(object):
         self.cap = cv2.VideoCapture(stream)
         self.debug_on = debug_on
         if debug_on:
-            self.monitor = plt.figure()
-            plt.ion()
+            pass
+            #self.monitor = plt.figure()
+            #plt.ion()
 
     def __del__(self):
         self.cap.release()
         if self.debug_on:
-            cv2.destroyAllWindows()
+            pass
+            #cv2.destroyAllWindows()
 
     def get_frame(self):
         if self.cap.isOpened():
@@ -63,7 +66,7 @@ class ImageProcessor(object):
             
         if area_ratio >= LANDMINE_AREA_RATIO_THRESHOLD:
             return 'landmine'
-        elif area_ratio < LANDMINE_AREA_RATIO_THRESHOLD:
+        elif area_ratio < LINE_AREA_RATIO_THRESHOLD:
             return 'brink'
         else:
             return 'unrecognized'
@@ -112,8 +115,11 @@ class ImageProcessor(object):
                     img_contour, contours[i], -1, (255, 255, 255), 2)
 
         if self.debug_on:
-            plt.imshow(cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
-            plt.show()
+            pass
+            cv2.imshow("orgframe", img)
+            cv2.waitKey(1)
+        ###plot
+
 
         return contours
 
