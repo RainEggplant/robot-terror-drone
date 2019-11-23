@@ -40,11 +40,22 @@ else:
     print("异常：参数输入错误！")
     sys.exit()
 
+rightflag=1
+
+PWMServo.setServo(1, 2150, 500)
+PWMServo.setServo(2, 1500, 500)
+time.sleep(0.5)
+
 stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 img_proc = ImageProcessor(stream, DEBUG)
-data = img_proc.get_objects_info()
-act_plan = ActionPlanning(data)
-act_plan.plan_action()
+
+while 1:
+    data = img_proc.get_objects_info()
+    print('main process\n')
+    act_plan = ActionPlanning(data)
+    rightflag=act_plan.plan_action(rightflag)
+    time.sleep(0.4)
+    print('rightflag',rightflag)
 print(data)
 print('Press Enter to exit.')
 input()

@@ -10,9 +10,10 @@ IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
 LEFT_THRESHOLD = 50
 RIGHT_THRESHOLD = 50
-MIN_LANDMINE_AREA = 200
+MIN_LANDMINE_AREA = 180
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
-BRINK_RATIO_THREHOLD = 0.2
+LINE_AREA_RATIO_THRESHOLD = 0.2
+BRINK_RATIO_THREHOLD = 0.15
 MIN_COLORED_LIGHT_AREA = 5000
 
 # 颜色的字典
@@ -63,7 +64,7 @@ class ImageProcessor(object):
 
         if area_ratio >= LANDMINE_AREA_RATIO_THRESHOLD:
             return 'landmine'
-        elif area_ratio < LANDMINE_AREA_RATIO_THRESHOLD:
+        elif area_ratio < LINE_AREA_RATIO_THRESHOLD:
             return 'brink'
         else:
             return 'unrecognized'
@@ -120,6 +121,10 @@ class ImageProcessor(object):
                     cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
             self.monitor.canvas.draw()
             self.monitor.canvas.flush_events()
+            # pass
+            # cv2.imshow("orgframe", img)
+            # cv2.waitKey(1)
+        # plot
 
         return contours
 
