@@ -2,9 +2,7 @@
 import math
 import numpy as np
 import cv2
-from functools import reduce
 from matplotlib import pyplot as plt
-from matplotlib.colors import hsv_to_rgb
 
 # %% 常数定义
 IMG_WIDTH = 320
@@ -12,9 +10,9 @@ IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
 LEFT_THRESHOLD = 50
 RIGHT_THRESHOLD = 50
-MIN_LANDMINE_AREA = 200
+MIN_LANDMINE_AREA = 180
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
-LINE_AREA_RATIO_THRESHOLD=0.6
+LINE_AREA_RATIO_THRESHOLD = 0.2
 BRINK_RATIO_THREHOLD = 0.15
 MIN_COLORED_LIGHT_AREA = 5000
 
@@ -22,7 +20,7 @@ MIN_COLORED_LIGHT_AREA = 5000
 COLOR_RANGE = {'red': [(0, 43, 46), (6, 255, 255)],
                'green': [(54, 43, 46), (77, 255, 255)],
                'yellow': [(30, 43, 46), (50, 255, 255)],
-               'black': [(0, 0, 0), (255, 255, 3)]
+               'black': [(0, 0, 0), (255, 255, 6)]
                }
 
 RANGE_RGB = {'red': (0, 0, 255),
@@ -39,15 +37,15 @@ class ImageProcessor(object):
         self.cap = cv2.VideoCapture(stream)
         self.debug_on = debug_on
         if debug_on:
-            pass
-            #self.monitor = plt.figure()
-            #plt.ion()
+            plt.ion()
+            self.monitor = plt.figure()
+            self.monitor_frame = None
+            plt.show()
 
     def __del__(self):
         self.cap.release()
         if self.debug_on:
-            pass
-            #cv2.destroyAllWindows()
+            cv2.destroyAllWindows()
 
     def get_frame(self):
         if self.cap.isOpened():
@@ -63,7 +61,7 @@ class ImageProcessor(object):
         area_ratio = cv2.contourArea(contour) / (math.pi * radius ** 2)
         if self.debug_on:
             print(area_ratio)
-            
+
         if area_ratio >= LANDMINE_AREA_RATIO_THRESHOLD:
             return 'landmine'
         elif area_ratio < LINE_AREA_RATIO_THRESHOLD:
@@ -115,11 +113,18 @@ class ImageProcessor(object):
                     img_contour, contours[i], -1, (255, 255, 255), 2)
 
         if self.debug_on:
-            pass
-            cv2.imshow("orgframe", img)
-            cv2.waitKey(1)
-        ###plot
-
+            if self.monitor_frame is None:
+                self.monitor_frame = plt.imshow(
+                    cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
+            else:
+                self.monitor_frame.set_data(
+                    cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
+            self.monitor.canvas.draw()
+            self.monitor.canvas.flush_events()
+            # pass
+            # cv2.imshow("orgframe", img)
+            # cv2.waitKey(1)
+        # plot
 
         return contours
 
@@ -145,9 +150,8 @@ class ImageProcessor(object):
         for i in contours:
             if self.debug_on:
                 print(i + ' ' + str(len(contours[i])))
-                
+
             if (len(contours[i]) > 0 and i != 'black'):
                 info['light'].append(i)
-                
+
         return info
-    
