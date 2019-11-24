@@ -2,7 +2,9 @@
 import math
 import numpy as np
 import cv2
-from matplotlib import pyplot as plt
+import threading
+import time
+# from matplotlib import pyplot as plt
 
 # %% 常数定义
 IMG_WIDTH = 320
@@ -32,34 +34,40 @@ RANGE_RGB = {'red': (0, 0, 255),
 
 # %% 图像处理
 class ImageProcessor(object):
-    def __init__(self, stream, debug_on):
-        self.stream = stream
-        self.cap = cv2.VideoCapture(stream)
-        self.debug_on = debug_on
-        if debug_on:
-            plt.ion()
-            self.monitor = plt.figure()
-            self.monitor_frame = None
-            plt.show()
+    def __init__(self, stream, debug):
+        self._cap = cv2.VideoCapture(stream)
+        self._debug = debug
+        self._disposed = False
+        # self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        if self._cap.isOpened():
+            ret, self._frame = self._cap.read()
+            self._disposing = threading.Event()
+            self._cap_thread = threading.Thread(target=self._get_frame)
+            self._cap_thread.setDaemon(True)
+            self._cap_thread.start()
+        else:
+            raise RuntimeError('Cannot open camera')
 
     def __del__(self):
-        self.cap.release()
-        if self.debug_on:
-            cv2.destroyAllWindows()
+        if not self._disposed:
+            self._disposing.set()
+            self._cap.release()
+            if self._debug:
+                cv2.destroyAllWindows()
 
-    def get_frame(self):
-        if self.cap.isOpened():
-            ret, frame = self.cap.read()
-            return frame
-        raise RuntimeError('Cannot open camera')
+    def _get_frame(self):
+        while not self._disposing.is_set() and self._cap.isOpened():
+            ret, self._frame = self._cap.read()
+            time.sleep(0.01)
 
     # 函数定义
     # %% 判断黑色物体类型
-    def determine_object_type(self, contour):
+    def _determine_object_type(self, contour):
         # 轮廓面积与最小外接圆面积之比
         ((centerX, centerY), radius) = cv2.minEnclosingCircle(contour)
         area_ratio = cv2.contourArea(contour) / (math.pi * radius ** 2)
-        if self.debug_on:
+        if self._debug:
             print(area_ratio)
 
         if area_ratio >= LANDMINE_AREA_RATIO_THRESHOLD:
@@ -70,7 +78,7 @@ class ImageProcessor(object):
             return 'unrecognized'
 
     # %% 图像处理
-    def get_contours(self, img):
+    def _get_contours(self, img):
         # 摄像头默认分辨率 640x480,
         # 处理图像时会相应的缩小图像进行处理，这样可以加快运行速度
         # 缩小时保持比例4：3, 且缩小后的分辨率应该是整数
@@ -107,35 +115,24 @@ class ImageProcessor(object):
                 contours[i]
             ))
 
-            # %%显示轮廓
-            if self.debug_on:
+            # %% 显示轮廓
+            if self._debug:
                 img_contour = cv2.drawContours(
                     img_contour, contours[i], -1, (255, 255, 255), 2)
 
-        if self.debug_on:
-            if self.monitor_frame is None:
-                self.monitor_frame = plt.imshow(
-                    cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
-            else:
-                self.monitor_frame.set_data(
-                    cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
-            self.monitor.canvas.draw()
-            self.monitor.canvas.flush_events()
-            # pass
-            # cv2.imshow("orgframe", img)
-            # cv2.waitKey(1)
-        # plot
+        if self._debug:
+            cv2.imshow("orgframe", img_contour)
+            cv2.waitKey(1)
 
         return contours
 
     def get_objects_info(self):
-        frame = self.get_frame()
-        contours = self.get_contours(frame)
+        contours = self._get_contours(self._frame)
         info = {}
         info['landmine'] = []
         info['brink'] = []
         for contour in contours['black']:
-            object_type = self.determine_object_type(contour)
+            object_type = self._determine_object_type(contour)
             if object_type == 'landmine':
                 bottom_most = tuple(contour[contour[:, :, 1].argmax()][0])
                 info['landmine'].append(bottom_most)
@@ -148,10 +145,14 @@ class ImageProcessor(object):
 
         info['light'] = []
         for i in contours:
-            if self.debug_on:
+            if self._debug:
                 print(i + ' ' + str(len(contours[i])))
 
             if (len(contours[i]) > 0 and i != 'black'):
                 info['light'].append(i)
 
         return info
+
+    def dispose(self):
+        self.disposed = True
+        self.__del__()
