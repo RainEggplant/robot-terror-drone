@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import math
-import numpy as np
-import cv2
 import threading
 import time
+import numpy as np
+import cv2
 
 # %% 常数定义
 IMG_WIDTH = 320
@@ -12,17 +12,17 @@ FRONT_THRESHOLD = 200
 LEFT_THRESHOLD = 50
 RIGHT_THRESHOLD = 50
 MIN_LANDMINE_AREA = 180
-LANDMINE_SOLIDITY_THRESHOLD = 0.9
+LANDMINE_SOLIDITY_THRESHOLD = 0.8
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
-BRINK_SOLIDITY_THREHOLD = 0.5
-BRINK_AREA_RATIO_THREHOLD = 0.2
+BRINK_SOLIDITY_THREHOLD = 0.45
+BRINK_AREA_RATIO_THREHOLD = 0.25
 MIN_COLORED_LIGHT_AREA = 5000
 
 # 颜色的字典
 COLOR_RANGE = {'red': [(0, 43, 46), (6, 255, 255)],
                'green': [(54, 43, 46), (77, 255, 255)],
                'yellow': [(30, 43, 46), (50, 255, 255)],
-               'black': [(0, 0, 0), (255, 255, 6)]
+               'black': [(0, 0, 0), (255, 255, 10)]
                }
 
 COLOR_RGB = {'red': (0, 0, 255),
@@ -184,5 +184,5 @@ class ImageProcessor(object):
 
     # 终止摄像头线程，销毁对象
     def dispose(self):
-        self.disposed = True
+        self._disposed = True
         self.__del__()
