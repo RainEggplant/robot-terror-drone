@@ -167,10 +167,7 @@ class ImageProcessor(object):
             elif object_type == 'brink':
                 [vx, vy, x, y] = cv2.fitLine(
                     contour, cv2.DIST_L2, 0, 0.01, 0.01)
-                x_brink = x + (FRONT_THRESHOLD - y) * vx / vy
-                if x_brink > 0:
-                    info['brink'].append((x_brink[0], FRONT_THRESHOLD))
-
+                info['brink'].append((vx, vy, x, y))
                 y_left = int((-x * vy / vx) + y)
                 y_right = int(((cols - x) * vy / vx) + y)
                 monitor = cv2.drawContours(
