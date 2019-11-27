@@ -39,8 +39,10 @@ class ImageProcessor(object):
         self._cap = cv2.VideoCapture(stream)
         self._debug = debug
         self._disposed = False
+        # check OpenCV version
+        self._cv_version = cv2.__version__.split('.')[0]
         self.monitor = None
-        # self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         if self._cap.isOpened():
             ret, self._frame = self._cap.read()
@@ -115,8 +117,13 @@ class ImageProcessor(object):
             closed = cv2.morphologyEx(
                 opened, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))  # 闭运算
             # 注意此处 opencv 2 的返回值是三元元组
-            (_, contours[i], _) = cv2.findContours(
-                closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
+
+            if self._cv_version == '3':
+                (_, contours[i], _) = cv2.findContours(
+                    closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
+            else:
+                (contours[i], _) = cv2.findContours(
+                    closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
 
             # %% 取面积高于阈值的轮廓
             area_threshold = MIN_LANDMINE_AREA if i == 'black' else MIN_COLORED_LIGHT_AREA
