@@ -173,8 +173,6 @@ class ImageProcessor(object):
 
         info = {}
         info['light'] = []
-        info['landmine'] = []
-        info['brink'] = []
 
         # 首先判断信号灯
         keys_light = {'red', 'green', 'yellow'}
@@ -218,6 +216,9 @@ class ImageProcessor(object):
         monitor = cv2.drawContours(
             monitor, [cnt_track_approx], -1, COLOR_BGR['yellow'], 3)
 
+        # 在赛道平面上识别地雷和边缘
+        info['landmine'] = []
+        info['brink'] = []
         for contour in contours['black']:
             (solidity, area_ratio) = self._get_area_ratio(contour)
             object_type = self._determine_object_type(
