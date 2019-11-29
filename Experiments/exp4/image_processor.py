@@ -11,27 +11,40 @@ IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
 LEFT_THRESHOLD = 50
 RIGHT_THRESHOLD = 50
-MIN_LANDMINE_AREA = 180
 LANDMINE_SOLIDITY_THRESHOLD = 0.8
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
 BRINK_SOLIDITY_THREHOLD = 0.45
 BRINK_AREA_RATIO_THREHOLD = 0.25
-MIN_COLORED_LIGHT_AREA = 5000
+MIN_CONTOUR_AREA = {'white': 10000, 'red': 5000, 'green': 5000, 'yellow': 5000, 'black': 180}
+MAX_TRACK_BRINK_DISTANCE = 3
 
-# 颜色的字典
-COLOR_RANGE = {'red': [(0, 43, 46), (6, 255, 255)],
-               'green': [(54, 43, 46), (77, 255, 255)],
-               'yellow': [(30, 43, 46), (50, 255, 255)],
-               'black': [(0, 0, 0), (255, 255, 10)]
-               }
+# 检视平面坐标点
+XT_LEFT = int(0.2 * IMG_WIDTH)
+XT_MID = int(0.5 * IMG_WIDTH)
+XT_RIGHT = int(0.8 * IMG_WIDTH)
+YT_BOTTOM = int(0.9 * IMG_HEIGHT)
+YT_MID = int(0.75 * IMG_HEIGHT)
+YT_TOP = int(0.6 * IMG_HEIGHT)
+TEST_POINTS = [(XT_LEFT, YT_BOTTOM), (XT_LEFT, YT_MID), (XT_LEFT, YT_TOP),
+               (XT_MID, YT_BOTTOM), (XT_MID, YT_MID), (XT_MID, YT_TOP),
+               (XT_RIGHT, YT_BOTTOM), (XT_RIGHT, YT_MID), (XT_RIGHT, YT_TOP)]
 
-COLOR_RGB = {'red': (0, 0, 255),
-             'green': (0, 255, 0),
-             'yellow': (255, 255, 0),
-             'black': (0, 0, 0),
-             'white': (255, 255, 255)
-             }
+# 颜色字典
+COLOR_RANGE = {
+    'white': [(0, 0, 128), (255, 20, 255)],
+    'red': [(0, 130, 165), (10, 255, 255)],
+    'green': [(67, 114, 140), (104, 255, 255)],
+    'yellow': [(30, 90, 186), (42, 255, 255)],
+    'black': [(0, 0, 0), (255, 255, 76)]
+    }
 
+COLOR_BGR = {
+    'white': (255, 255, 255),
+    'red': (0, 0, 255),
+    'green': (0, 255, 0),
+    'yellow': (0, 255, 255),
+    'black': (0, 0, 0)
+    }
 
 # %% 图像处理
 class ImageProcessor(object):
@@ -97,45 +110,46 @@ class ImageProcessor(object):
         img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT),
                          interpolation=cv2.INTER_CUBIC)  # 将图片缩放
         self.monitor = img
-        frame = cv2.GaussianBlur(img, (3, 3), 0)  # 高斯模糊
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)  # 将图片转换到 HSV 空间
-
-        # 分离出各个 HSV 通道
-        h, s, v = cv2.split(frame)
-        # 直方图化
-        v = cv2.equalizeHist(v)
-        # 合并三个通道
-        merged_frame = cv2.merge((h, s, v))
+        img_gaussian = cv2.GaussianBlur(img, (3, 3), 0)  # 高斯模糊
+        img_hsv = cv2.cvtColor(img_gaussian, cv2.COLOR_BGR2HSV)
+       
+        # CLAHE
+        # equalizeHist is S**T!!!
+        h, s, v = cv2.split(img_hsv) # 分离出各个 HSV 通道
+        v_max = np.amax(v)
+        v_min = np.amin(v)
+        v = ((v-v_min)/(v_max - v_min)) * 255
+        v = v.astype('uint8')
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        v = clahe.apply(v)
+        img_clahe = cv2.merge((h, s, v)) # 合并三个通道
 
         # %% 寻找颜色轮廓
         contours = {}
         for i in COLOR_RANGE:
-            frame = cv2.inRange(
-                merged_frame, COLOR_RANGE[i][0], COLOR_RANGE[i][1])  # 对原图像和掩模进行位运算
-            opened = cv2.morphologyEx(
-                frame, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))  # 开运算
-            closed = cv2.morphologyEx(
-                opened, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))  # 闭运算
+            mask_color = cv2.inRange(
+                img_clahe, COLOR_RANGE[i][0], COLOR_RANGE[i][1])  # 对原图像和掩模进行位运算
+            mask_color = cv2.morphologyEx(
+                mask_color, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))  # 开运算
+            mask_color = cv2.morphologyEx(
+                mask_color, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))  # 闭运算
             # 注意此处 opencv 2 的返回值是三元元组
 
             if self._cv_version == '3':
                 (_, contours[i], _) = cv2.findContours(
-                    closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
+                    mask_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
             else:
                 (contours[i], _) = cv2.findContours(
-                    closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
+                    mask_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
 
             # %% 取面积高于阈值的轮廓
-            area_threshold = MIN_LANDMINE_AREA if i == 'black' else MIN_COLORED_LIGHT_AREA
             contours[i] = list(filter(
-                lambda x: cv2.contourArea(x) > area_threshold,
-                contours[i]
-            ))
+                lambda x: cv2.contourArea(x) > MIN_CONTOUR_AREA[i], contours[i]))
 
         return contours
 
     def _refresh_monitor(self):
-        cv2.imshow("orgframe", self.monitor)
+        cv2.imshow("Monitor", self.monitor)
         cv2.waitKey(1)
 
     def analyse_objects(self):
@@ -145,40 +159,91 @@ class ImageProcessor(object):
         rows, cols = monitor.shape[:2]  # 图片大小
         # 画出警戒线
         monitor = cv2.line(monitor, (0, FRONT_THRESHOLD),
-                           (cols - 1, FRONT_THRESHOLD), COLOR_RGB['green'], 2)
+                           (cols - 1, FRONT_THRESHOLD), COLOR_BGR['green'], 2)
 
         info = {}
+        info['light'] = []
         info['landmine'] = []
         info['brink'] = []
+
+        # 首先判断信号灯
+        keys_light = {'red', 'green', 'yellow'}
+        contours_light = {key:value for key, value in contours.items() if key in keys_light}
+        for i in contours_light:
+            if (len(contours_light[i]) > 0):
+                info['light'].append(i)
+        
+        # 然后识别赛道平面
+        max_contained_points = 0
+        cnt_area = 0
+        cnt_track = None
+        for contour in contours['white']:
+            contained_points = 0
+            for point in TEST_POINTS:
+                if cv2.pointPolygonTest(contour, point, False) != -1:
+                    contained_points += 1
+            
+            area = cv2.contourArea(contour)
+            if self._debug:
+                print('Candidate track: ', contained_points, area)
+
+            if (contained_points > max_contained_points or 
+                (contained_points == max_contained_points and area >= cnt_area)):
+                max_contained_points = contained_points
+                cnt_area = area
+                cnt_track = contour
+
+        # 如果无法识别到赛道平面，直接返回
+        if cnt_track is None:
+            self.monitor = monitor
+            if self._debug:
+                self._refresh_monitor()
+            return info
+        
+        # 用多边形近似平面
+        epsilon = 0.01 * cv2.arcLength(cnt_track, True)
+        cnt_track_approx = cv2.approxPolyDP(cnt_track, epsilon, True)
+        info['track'] = cnt_track_approx
+        monitor = cv2.drawContours(monitor, [cnt_track_approx], -1, COLOR_BGR['yellow'], 3)
+
         for contour in contours['black']:
             (solidity, area_ratio) = self._get_area_ratio(contour)
             object_type = self._determine_object_type(
                 'black', solidity, area_ratio)
-            if self._debug:
-                print(object_type, solidity, area_ratio)
-
             if object_type == 'landmine':
                 bottom_most = tuple(contour[contour[:, :, 1].argmax()][0])
-                monitor = cv2.drawContours(
-                    monitor, contour, -1, COLOR_RGB['red'], 2)
-                # monitor = cv2.putText(monitor, str(round(
-                #     area_ratio, 3)), bottom_most, cv2.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_RGB['white'], 1)
-                info['landmine'].append(bottom_most)
+                # 只有在赛道平面内识别到的地雷才有效
+                if cv2.pointPolygonTest(contour, bottom_most, False) != -1:
+                    monitor = cv2.drawContours(monitor, contour, -1, COLOR_BGR['red'], 2)
+                    # monitor = cv2.putText(monitor, str(round(
+                    #     area_ratio, 3)), bottom_most, cv2.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BGR['white'], 1)
+                    info['landmine'].append(bottom_most)
+                if self._debug:
+                        print('lamdmine: ', solidity, area_ratio)
+   
             elif object_type == 'brink':
-                [vx, vy, x, y] = cv2.fitLine(
-                    contour, cv2.DIST_L2, 0, 0.01, 0.01)
-                info['brink'].append((vx, vy, x, y))
-                y_left = int((-x * vy / vx) + y)
-                y_right = int(((cols - x) * vy / vx) + y)
-                monitor = cv2.drawContours(
-                    monitor, contour, -1, COLOR_RGB['white'], 2)
-                monitor = cv2.line(monitor, (cols - 1, y_right),
-                                   (0, y_left), COLOR_RGB['red'], 2)
+                # compute the center of the contour
+                moments = cv2.moments(contour)
+                x_c = int(moments['m10'] / moments['m00'])
+                y_c = int(moments['m01'] / moments['m00'])
+                distance = cv2.pointPolygonTest(contour, (x_c, y_c), True)
+                # 识别到的边缘的中心必须与赛道边缘不能过远
+                if distance < MAX_TRACK_BRINK_DISTANCE:
+                    [vx, vy, x, y] = cv2.fitLine(
+                        contour, cv2.DIST_L2, 0, 0.01, 0.01)
+                    info['brink'].append((vx[0], vy[0], x[0], y[0]))
 
-        info['light'] = []
-        for i in contours:
-            if (len(contours[i]) > 0 and i != 'black'):
-                info['light'].append(i)
+                    y_left = int((-x * vy / vx) + y)
+                    y_right = int(((cols - x) * vy / vx) + y)
+                    monitor = cv2.drawContours(
+                        monitor, contour, -1, COLOR_BGR['white'], 2)
+                    monitor = cv2.line(monitor, (cols - 1, y_right),
+                                    (0, y_left), COLOR_BGR['red'], 2)
+                    if self._debug:
+                        print('brink: ', solidity, area_ratio, distance)
+            else:
+                if self._debug:
+                    print('unknown', solidity, area_ratio)
 
         self.monitor = monitor
         if self._debug:
