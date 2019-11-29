@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 
 # %% 常数定义
+USE_CLAHE = True
 IMG_WIDTH = 320
 IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
@@ -15,7 +16,8 @@ LANDMINE_SOLIDITY_THRESHOLD = 0.8
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
 BRINK_SOLIDITY_THREHOLD = 0.45
 BRINK_AREA_RATIO_THREHOLD = 0.25
-MIN_CONTOUR_AREA = {'white': 10000, 'red': 5000, 'green': 5000, 'yellow': 5000, 'black': 180}
+MIN_CONTOUR_AREA = {'white': 10000, 'red': 5000,
+                    'green': 5000, 'yellow': 5000, 'black': 180}
 MAX_TRACK_BRINK_DISTANCE = 3
 
 # 检视平面坐标点
@@ -36,7 +38,7 @@ COLOR_RANGE = {
     'green': [(67, 114, 140), (104, 255, 255)],
     'yellow': [(30, 90, 186), (42, 255, 255)],
     'black': [(0, 0, 0), (255, 255, 76)]
-    }
+}
 
 COLOR_BGR = {
     'white': (255, 255, 255),
@@ -44,9 +46,11 @@ COLOR_BGR = {
     'green': (0, 255, 0),
     'yellow': (0, 255, 255),
     'black': (0, 0, 0)
-    }
+}
 
 # %% 图像处理
+
+
 class ImageProcessor(object):
     def __init__(self, stream, debug):
         self._cap = cv2.VideoCapture(stream)
@@ -109,26 +113,32 @@ class ImageProcessor(object):
         # 缩小时保持比例4：3, 且缩小后的分辨率应该是整数
         img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT),
                          interpolation=cv2.INTER_CUBIC)  # 将图片缩放
-        self.monitor = img
+        # self.monitor = img
         img_gaussian = cv2.GaussianBlur(img, (3, 3), 0)  # 高斯模糊
         img_hsv = cv2.cvtColor(img_gaussian, cv2.COLOR_BGR2HSV)
-       
-        # CLAHE
-        # equalizeHist is S**T!!!
-        h, s, v = cv2.split(img_hsv) # 分离出各个 HSV 通道
-        v_max = np.amax(v)
-        v_min = np.amin(v)
-        v = ((v-v_min)/(v_max - v_min)) * 255
-        v = v.astype('uint8')
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        v = clahe.apply(v)
-        img_clahe = cv2.merge((h, s, v)) # 合并三个通道
+
+        if USE_CLAHE:
+            # CLAHE
+            # equalizeHist is S**T!!!
+            h, s, v = cv2.split(img_hsv)  # 分离出各个 HSV 通道
+            v_max = np.amax(v)
+            v_min = np.amin(v)
+            v = ((v-v_min)/(v_max - v_min)) * 255
+            v = v.astype('uint8')
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            v = clahe.apply(v)
+            img_clahe = cv2.merge((h, s, v))  # 合并三个通道
+            img_proc = img_clahe
+            self.monitor = cv2.cvtColor(img_clahe, cv2.COLOR_HSV2BGR)
+        else:
+            img_proc = img_hsv
+            self.monitor = img_gaussian
 
         # %% 寻找颜色轮廓
         contours = {}
         for i in COLOR_RANGE:
             mask_color = cv2.inRange(
-                img_clahe, COLOR_RANGE[i][0], COLOR_RANGE[i][1])  # 对原图像和掩模进行位运算
+                img_proc, COLOR_RANGE[i][0], COLOR_RANGE[i][1])  # 对原图像和掩模进行位运算
             mask_color = cv2.morphologyEx(
                 mask_color, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))  # 开运算
             mask_color = cv2.morphologyEx(
@@ -152,7 +162,7 @@ class ImageProcessor(object):
         cv2.imshow("Monitor", self.monitor)
         cv2.waitKey(1)
 
-    def analyse_objects(self):
+    def analyze_objects(self):
         current_frame = self._frame
         contours = self._get_contours(current_frame)
         monitor = self.monitor
@@ -168,11 +178,12 @@ class ImageProcessor(object):
 
         # 首先判断信号灯
         keys_light = {'red', 'green', 'yellow'}
-        contours_light = {key:value for key, value in contours.items() if key in keys_light}
+        contours_light = {key: value for key,
+                          value in contours.items() if key in keys_light}
         for i in contours_light:
             if (len(contours_light[i]) > 0):
                 info['light'].append(i)
-        
+
         # 然后识别赛道平面
         max_contained_points = 0
         cnt_area = 0
@@ -182,13 +193,13 @@ class ImageProcessor(object):
             for point in TEST_POINTS:
                 if cv2.pointPolygonTest(contour, point, False) != -1:
                     contained_points += 1
-            
+
             area = cv2.contourArea(contour)
             if self._debug:
                 print('Candidate track: ', contained_points, area)
 
-            if (contained_points > max_contained_points or 
-                (contained_points == max_contained_points and area >= cnt_area)):
+            if (contained_points > max_contained_points or
+                    (contained_points == max_contained_points and area >= cnt_area)):
                 max_contained_points = contained_points
                 cnt_area = area
                 cnt_track = contour
@@ -199,12 +210,13 @@ class ImageProcessor(object):
             if self._debug:
                 self._refresh_monitor()
             return info
-        
+
         # 用多边形近似平面
         epsilon = 0.01 * cv2.arcLength(cnt_track, True)
         cnt_track_approx = cv2.approxPolyDP(cnt_track, epsilon, True)
         info['track'] = cnt_track_approx
-        monitor = cv2.drawContours(monitor, [cnt_track_approx], -1, COLOR_BGR['yellow'], 3)
+        monitor = cv2.drawContours(
+            monitor, [cnt_track_approx], -1, COLOR_BGR['yellow'], 3)
 
         for contour in contours['black']:
             (solidity, area_ratio) = self._get_area_ratio(contour)
@@ -214,13 +226,14 @@ class ImageProcessor(object):
                 bottom_most = tuple(contour[contour[:, :, 1].argmax()][0])
                 # 只有在赛道平面内识别到的地雷才有效
                 if cv2.pointPolygonTest(contour, bottom_most, False) != -1:
-                    monitor = cv2.drawContours(monitor, contour, -1, COLOR_BGR['red'], 2)
+                    monitor = cv2.drawContours(
+                        monitor, contour, -1, COLOR_BGR['red'], 2)
                     # monitor = cv2.putText(monitor, str(round(
                     #     area_ratio, 3)), bottom_most, cv2.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BGR['white'], 1)
                     info['landmine'].append(bottom_most)
                 if self._debug:
-                        print('lamdmine: ', solidity, area_ratio)
-   
+                    print('lamdmine: ', solidity, area_ratio)
+
             elif object_type == 'brink':
                 # compute the center of the contour
                 moments = cv2.moments(contour)
@@ -238,7 +251,7 @@ class ImageProcessor(object):
                     monitor = cv2.drawContours(
                         monitor, contour, -1, COLOR_BGR['white'], 2)
                     monitor = cv2.line(monitor, (cols - 1, y_right),
-                                    (0, y_left), COLOR_BGR['red'], 2)
+                                       (0, y_left), COLOR_BGR['red'], 2)
                     if self._debug:
                         print('brink: ', solidity, area_ratio, distance)
             else:
