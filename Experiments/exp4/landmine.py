@@ -144,7 +144,7 @@ def plan2(data):
     return plan_act
 def plan3():
     plan_act=[]
-    plan_act.append('custom/fangentou')
+    plan_act.append('custom/somersault')
     return plan_act
 def plan4(data):
     plan_act=[]
