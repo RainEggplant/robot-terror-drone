@@ -50,7 +50,7 @@ RUNNING = 1
 
 rightflag = 1
 #go to right
-state=0
+state=2
 #0-go straight and stop
 #1-step
 #2-landmine
@@ -68,17 +68,18 @@ def setcamera(state):
     else:
         PWMServo.setServo(1, 2150, 500)
         PWMServo.setServo(2, 1500, 500)
-def setstate(state,info):
+def setstate(state,data):
     frontbrink=0
     yellow=0
     red=0
-    for i in info['light']:
+    for i in data['light']:
         if i == 'red':
             print('find red')
             red=1
         if i=='yellow':
             print('find yellow')
             yellow=1
+    data['track'].reshape(2,-1)
     for i in data['track']:
         if (i[1]<H/3)&(i[1]>H/5):
             frontbrink=1
@@ -108,6 +109,7 @@ def plan2(data):
     rightbrink=0
     leftbrink=0
     line_judge = 0
+    data['track'].reshape(-1,2)
     for i in data['track']:
         if (i[1]>H/3)&(i[0]>W/5)&(i[0]<W/2):
             leftbrink=1
@@ -149,11 +151,11 @@ def plan3():
 def plan4(data):
     plan_act=[]
     yellow=0
-    for i in info['light']:
+    for i in data['light']:
         if i=='yellow':
             print('find yellow')
             yellow=1
-    if yellow=1:
+    if yellow==1:
         plan_act.append('custom/walk')
         plan_act.append('custom/walk')
         plan_act.append('custom/walk')
@@ -172,14 +174,14 @@ img_proc = ImageProcessor(stream, DEBUG)
 while 1:
     #setcamera
     setcamera(state)
-    #getinfo
-    data = img_proc.analyse_objects()
+    #getdata
+    data = img_proc.analyze_objects()
     print('\n main process','\t state=',state)
-    if (len(data['track']) = 0):
+    if (len(data['track']) == 0):
         print('!!!not recognize the track')
         continue
     #get state
-    state=setstate(state,info)
+    state=setstate(state,data)
     plan_act = []
     if state==0:
         plan_act=plan0()
