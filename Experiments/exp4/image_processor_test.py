@@ -1,7 +1,7 @@
 import time
 from image_processor import ImageProcessor
 
-stream = 'http://192.168.137.55:8080/video'
+stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 # stream = 0
 img_proc = ImageProcessor(stream, True)
 while 1:
@@ -9,4 +9,4 @@ while 1:
     if 'track' in data:
         del data['track']
     print(data, '\n')
-    time.sleep(0.5)
+    time.sleep(0.1)

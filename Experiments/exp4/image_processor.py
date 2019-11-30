@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 # %% 常数定义
-USE_CLAHE = True
+USE_CLAHE = False
 IMG_WIDTH = 320
 IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
