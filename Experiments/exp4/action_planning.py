@@ -28,17 +28,17 @@ RUNNING = 0
 # pos['light'] = ['green', 'yellow']
 
 class ActionPlanning(object):
-    def __init__(self, posdata):
-        self.posdata = posdata
+    def __init__(self, infodata):
+        self.infodata = infodata
 
     def plan_action(self, rightflag):
 
         # get pos
-        pos = self.posdata
-        # replace the above with the getpos function
+        info = self.infodata
+        # replace the above with the getinfo function
         global RUNNING
         # judge the color
-        for i in pos['light']:
+        for i in info['light']:
             if i == 'green':
                 RUNNING = 1
                 print('green light')
