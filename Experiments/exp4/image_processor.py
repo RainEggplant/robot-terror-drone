@@ -57,7 +57,8 @@ class ImageProcessor(object):
         self._debug = debug
         self._disposed = False
         # check OpenCV version
-        self._cv_version = cv2.__version__.split('.')[0]
+        self._cv_version = cv2.__version__.split(  # pylint: disable=no-member
+            '.')[0]
         self.monitor = None
         # self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
