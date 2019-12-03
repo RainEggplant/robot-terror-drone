@@ -1,12 +1,9 @@
 # !/usr/bin/python3
 # coding=utf8
 
-import threading
-import math
 import time
 import numpy as np
 import sys
-import cv2
 from image_processor import ImageProcessor
 
 sys.path.append('../..')  # nopep8
@@ -129,8 +126,8 @@ def plan2(data):
         plan_act.append('custom/move_left')
         line_judge = 1
     # landmine judge
-    if (len(pos['landmine']) > 0):
-        maxh = max(np.array(pos['landmine']).reshape(2, -1)[1, :])
+    if (len(data['landmine']) > 0):
+        maxh = max(np.array(data['landmine']).reshape(2, -1)[1, :])
         if maxh < H_THRESHOLD:
             plan_act.append('custom/walk')
         elif rightflag:
@@ -192,7 +189,7 @@ while 1:
     if state==3:
         plan_act=plan3()
     if state==4:
-        plan_act=plan4()
+        plan_act=plan4(data)
     plan2act(plan_act)
     time.sleep(0.4)
     print('rightflag', rightflag)
