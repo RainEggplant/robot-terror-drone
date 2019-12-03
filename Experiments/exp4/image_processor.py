@@ -81,7 +81,7 @@ class ImageProcessor(object):
     def _get_frame(self):
         while not self._disposing.is_set() and self._cap.isOpened():
             _, self._frame = self._cap.read()
-            time.sleep(0.01)
+            time.sleep(0.005)
 
     # %% 获得轮廓面积与凸包及最小外接圆面积之比
     def _get_area_ratio(self, contour):

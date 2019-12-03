@@ -76,7 +76,7 @@ def setstate(state,data):
         if i=='yellow':
             print('find yellow')
             yellow=1
-    data['track'].reshape(2,-1)
+    data['track'] = data['track'].reshape(-1,2)
     for i in data['track']:
         if (i[1]<H/3)&(i[1]>H/5):
             frontbrink=1
@@ -99,14 +99,15 @@ def plan0():
     return plan_act
 def plan1():
     plan_act=[]
-    plan_act.append('custom/somersault')
+    plan_act.append('custom/walk')
+    plan_act.append('custom/somersault_step')
     return plan_act
 def plan2(data):
     plan_act = []
     rightbrink=0
     leftbrink=0
     line_judge = 0
-    data['track'].reshape(-1,2)
+    data['track'] = data['track'].reshape(-1,2)
     for i in data['track']:
         if (i[1]>H/3)&(i[0]>W/5)&(i[0]<W/2):
             leftbrink=1
@@ -186,6 +187,7 @@ while 1:
         plan_act=plan1()
     if state==2:
         plan_act=plan2(data)
+        print('go to state3')
     if state==3:
         plan_act=plan3()
     if state==4:

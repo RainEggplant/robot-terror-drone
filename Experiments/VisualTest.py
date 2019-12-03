@@ -26,7 +26,7 @@ orgFrame = None
 deflection_angle = 0
 
 # The value must be modified according to how the camera base was placed
-PWMServo.setServo(1, 1800, 600)  #up and down up-little
+PWMServo.setServo(1, 1200, 600)  #up and down up-little
 time.sleep(0.8)
 PWMServo.setServo(2, 1500, 600)  # Same as above
 time.sleep(0.8)
