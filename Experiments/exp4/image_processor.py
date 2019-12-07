@@ -18,7 +18,7 @@ BRINK_SOLIDITY_THREHOLD = 0.45
 BRINK_AREA_RATIO_THREHOLD = 0.25
 MIN_CONTOUR_AREA = {'white': 10000, 'red': 5000,
                     'green': 5000, 'yellow': 5000, 'black': 180}
-MAX_TRACK_BRINK_DISTANCE = 3
+MIN_TRACK_BRINK_DISTANCE = -30
 
 # 检视平面坐标点
 XT_LEFT = int(0.2 * IMG_WIDTH)
@@ -227,7 +227,7 @@ class ImageProcessor(object):
             if object_type == 'landmine':
                 bottom_most = tuple(contour[contour[:, :, 1].argmax()][0])
                 # 只有在赛道平面内识别到的地雷才有效
-                if cv2.pointPolygonTest(contour, bottom_most, False) != -1:
+                if cv2.pointPolygonTest(cnt_track, bottom_most, False) != -1:
                     monitor = cv2.drawContours(
                         monitor, contour, -1, COLOR_BGR['red'], 2)
                     # monitor = cv2.putText(monitor, str(round(
@@ -241,9 +241,12 @@ class ImageProcessor(object):
                 moments = cv2.moments(contour)
                 x_c = int(moments['m10'] / moments['m00'])
                 y_c = int(moments['m01'] / moments['m00'])
-                distance = cv2.pointPolygonTest(contour, (x_c, y_c), True)
+                distance = cv2.pointPolygonTest(cnt_track, (x_c, y_c), True)
+                if self._debug:
+                    print('Candidate brink: ', solidity, area_ratio, distance)
+
                 # 识别到的边缘的中心必须与赛道边缘不能过远
-                if distance < MAX_TRACK_BRINK_DISTANCE:
+                if distance > MIN_TRACK_BRINK_DISTANCE:
                     [vx, vy, x, y] = cv2.fitLine(
                         contour, cv2.DIST_L2, 0, 0.01, 0.01)
                     info['brink'].append((vx[0], vy[0], x[0], y[0]))
@@ -254,8 +257,6 @@ class ImageProcessor(object):
                         monitor, contour, -1, COLOR_BGR['white'], 2)
                     monitor = cv2.line(monitor, (cols - 1, y_right),
                                        (0, y_left), COLOR_BGR['red'], 2)
-                    if self._debug:
-                        print('brink: ', solidity, area_ratio, distance)
             else:
                 if self._debug:
                     print('unknown', solidity, area_ratio)
