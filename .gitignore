@@ -109,3 +109,5 @@ venv.bak/
 # captured images
 Experiments/captured/
 
+# .idea
+.idea
