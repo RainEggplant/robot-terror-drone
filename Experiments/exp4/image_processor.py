@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 # %% 常数定义
-USE_CLAHE = False
+USE_CLAHE = True
 IMG_WIDTH = 320
 IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
@@ -17,7 +17,7 @@ LANDMINE_AREA_RATIO_THRESHOLD = 0.6
 BRINK_SOLIDITY_THREHOLD = 0.45
 BRINK_AREA_RATIO_THREHOLD = 0.25
 MIN_CONTOUR_AREA = {'white': 10000, 'red': 5000,
-                    'green': 5000, 'yellow': 5000, 'black': 180}
+                    'green': 5000, 'yellow': 5000, 'black': 150}
 MIN_TRACK_BRINK_DISTANCE = -30
 
 # 检视平面坐标点
@@ -33,11 +33,11 @@ TEST_POINTS = [(XT_LEFT, YT_BOTTOM), (XT_LEFT, YT_MID), (XT_LEFT, YT_TOP),
 
 # 颜色字典
 COLOR_RANGE = {
-    'white': [(0, 0, 128), (255, 20, 255)],
+    'white': [(0, 0, 128), (255, 30, 255)],
     'red': [(0, 130, 165), (10, 255, 255)],
     'green': [(67, 114, 140), (104, 255, 255)],
     'yellow': [(30, 90, 186), (42, 255, 255)],
-    'black': [(0, 0, 0), (255, 255, 76)]
+    'black': [(0, 0, 0), (255, 255, 64)]
 }
 
 COLOR_BGR = {
@@ -122,10 +122,11 @@ class ImageProcessor(object):
             # CLAHE
             # equalizeHist is S**T!!!
             h, s, v = cv2.split(img_hsv)  # 分离出各个 HSV 通道
-            v_max = np.amax(v)
-            v_min = np.amin(v)
-            v = ((v-v_min)/(v_max - v_min)) * 255
-            v = v.astype('uint8')
+            # 不能做归一化处理，否则容易放大噪声
+            # v_max = np.amax(v)
+            # v_min = np.amin(v)
+            # v = ((v-v_min)/(v_max - v_min)) * 255
+            # v = v.astype('uint8')
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             v = clahe.apply(v)
             img_clahe = cv2.merge((h, s, v))  # 合并三个通道
