@@ -296,7 +296,7 @@ class ImageProcessor(object):
 
         if track_cur is not None:
             track_cur_approx = self._approx_track(track_cur)
-            info['track_cur'] = track_cur_approx
+            info['track'] = track_cur_approx
             monitor = cv2.drawContours(
                 monitor, [track_cur_approx], -1, COLOR_BGR['yellow'], 3)
 
