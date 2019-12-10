@@ -4,6 +4,7 @@
 import time
 import numpy as np
 import sys
+import cv2
 from image_processor import ImageProcessor
 
 sys.path.append('../..')  # nopep8
@@ -44,10 +45,13 @@ H = 240
 H_THRESHOLD = 100
 FALL_THRESHOLD = 20
 RUNNING = 1
+leftdownpoint=(W/6,2/3*H)
+rightdownpoint=(W/6*5,2/3*H)
+frontpoint=(W/2,H/3)
 
 rightflag = 1
 #go to right
-state=2
+state=0
 #0-go straight and stop
 #1-step
 #2-landmine
@@ -60,10 +64,10 @@ def plan2act(plan_act):
         print('act= ',i)
 def setcamera(state):
     if state==4:
-        PWMServo.setServo(1, 1500, 500)
+        PWMServo.setServo(1, 2100, 500)
         PWMServo.setServo(2, 1500, 500)
     else:
-        PWMServo.setServo(1, 2150, 500)
+        PWMServo.setServo(1, 2100, 500)
         PWMServo.setServo(2, 1500, 500)
 def setstate(state,data):
     frontbrink=0
@@ -76,10 +80,9 @@ def setstate(state,data):
         if i=='yellow':
             print('find yellow')
             yellow=1
-    data['track'] = data['track'].reshape(-1,2)
-    for i in data['track']:
-        if (i[1]<H/3)&(i[1]>H/5):
-            frontbrink=1
+    approx = data['track']
+    if (cv2.pointPolygonTest(approx,frontpoint,0)==-1):
+        frontbrink=1
     if (state==0)&(red==1):
         state=1
         return state
@@ -100,31 +103,39 @@ def plan0():
 def plan1():
     plan_act=[]
     plan_act.append('custom/walk')
+    plan_act.append('custom/walk')
     plan_act.append('custom/somersault_step')
+    plan_act.append('custom/somersault_step')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/move_left_bit')
+    plan_act.append('custom/move_left_bit')
     return plan_act
 def plan2(data):
+    global rightflag
     plan_act = []
     rightbrink=0
     leftbrink=0
     line_judge = 0
-    data['track'] = data['track'].reshape(-1,2)
-    for i in data['track']:
-        if (i[1]>H/3)&(i[0]>W/5)&(i[0]<W/2):
-            leftbrink=1
-        if (i[1]>H/3)&(i[0]<4*W/5)&(i[0]>W/2):
-            rightbrink=1
+    approx = data['track']
+    if (cv2.pointPolygonTest(approx,leftdownpoint,0)==-1):
+        leftbrink=1
+    if (cv2.pointPolygonTest(approx,rightdownpoint,0)==-1):
+        rightbrink=1
     # brink judge
     if leftbrink:
         rightflag = 1
         print('find the left line')
         time.sleep(1)
-        plan_act.append('custom/move_right')
+        plan_act.append('custom/move_right_bit')
         line_judge = 1
     if rightbrink:
         rightflag = 0
         print('find the right line')
         time.sleep(1)
-        plan_act.append('custom/move_left')
+        plan_act.append('custom/move_left_bit')
         line_judge = 1
     # landmine judge
     if (len(data['landmine']) > 0):
@@ -144,7 +155,8 @@ def plan2(data):
     return plan_act
 def plan3():
     plan_act=[]
-    plan_act.append('custom/somersault')
+    plan_act.append('custom/walk')
+    plan_act.append('custom/145')
     return plan_act
 def plan4(data):
     plan_act=[]
