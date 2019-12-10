@@ -28,17 +28,17 @@ RUNNING = 0
 # pos['light'] = ['green', 'yellow']
 
 class ActionPlanning(object):
-    def __init__(self, posdata):
-        self.posdata = posdata
+    def __init__(self, infodata):
+        self.infodata = infodata
 
     def plan_action(self, rightflag):
 
         # get pos
-        pos = self.posdata
-        # replace the above with the getpos function
+        info = self.infodata
+        # replace the above with the getinfo function
         global RUNNING
         # judge the color
-        for i in pos['light']:
+        for i in info['light']:
             if i == 'green':
                 RUNNING = 1
                 print('green light')
@@ -52,7 +52,7 @@ class ActionPlanning(object):
             plan_act = []
             line_judge = 0
             # brink judge
-            for i in pos['brink']:
+            for i in info['brink']:
                 if FALL_THRESHOLD < i[0] < W/2:
                     rightflag = 1
                     print('find the left line')
@@ -66,8 +66,8 @@ class ActionPlanning(object):
                     plan_act.append('custom/move_left')
                     line_judge = 1
             # landmine judge
-            if (len(pos['landmine']) > 0):
-                maxh = max(np.array(pos['landmine']).reshape(2, -1)[1, :])
+            if (len(info['landmine']) > 0):
+                maxh = max(np.array(info['landmine']).reshape(2, -1)[1, :])
                 if maxh < H_THRESHOLD:
                     plan_act.append('custom/walk')
                 elif rightflag:

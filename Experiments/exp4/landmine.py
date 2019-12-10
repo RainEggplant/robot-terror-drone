@@ -1,14 +1,11 @@
 # !/usr/bin/python3
 # coding=utf8
 
-import threading
-import math
 import time
 import numpy as np
 import sys
 import cv2
 from image_processor import ImageProcessor
-from action_planning import ActionPlanning
 
 sys.path.append('../..')  # nopep8
 import Serial_Servo_Running as SSR
@@ -40,20 +37,174 @@ else:
     print("异常：参数输入错误！")
     sys.exit()
 
-rightflag = 1
+## below
 
+
+W = 320
+H = 240
+H_THRESHOLD = 100
+FALL_THRESHOLD = 20
+RUNNING = 1
+leftdownpoint=(W/6,2/3*H)
+rightdownpoint=(W/6*5,2/3*H)
+frontpoint=(W/2,H/3)
+
+rightflag = 1
+#go to right
+state=0
+#0-go straight and stop
+#1-step
+#2-landmine
+#3-gap
+#4-door
+# plan to act
+def plan2act(plan_act):
+    for i in plan_act:
+        SSR.running_action_group(i, 1)
+        print('act= ',i)
+def setcamera(state):
+    if state==4:
+        PWMServo.setServo(1, 2100, 500)
+        PWMServo.setServo(2, 1500, 500)
+    else:
+        PWMServo.setServo(1, 2100, 500)
+        PWMServo.setServo(2, 1500, 500)
+def setstate(state,data):
+    frontbrink=0
+    yellow=0
+    red=0
+    for i in data['light']:
+        if i == 'red':
+            print('find red')
+            red=1
+        if i=='yellow':
+            print('find yellow')
+            yellow=1
+    approx = data['track']
+    if (cv2.pointPolygonTest(approx,frontpoint,0)==-1):
+        frontbrink=1
+    if (state==0)&(red==1):
+        state=1
+        return state
+    if (state==1):
+        state=2
+        return state
+    if (state==2)&(frontbrink==1):
+        state=3
+        return state
+    if (state==3):
+        state=4
+        return state
+    return state
+def plan0():
+    plan_act=[]
+    plan_act.append('custom/walk')
+    return plan_act
+def plan1():
+    plan_act=[]
+    plan_act.append('custom/walk')
+    plan_act.append('custom/walk')
+    plan_act.append('custom/somersault_step')
+    plan_act.append('custom/somersault_step')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/turn_to_left')
+    plan_act.append('custom/move_left_bit')
+    plan_act.append('custom/move_left_bit')
+    return plan_act
+def plan2(data):
+    global rightflag
+    plan_act = []
+    rightbrink=0
+    leftbrink=0
+    line_judge = 0
+    approx = data['track']
+    if (cv2.pointPolygonTest(approx,leftdownpoint,0)==-1):
+        leftbrink=1
+    if (cv2.pointPolygonTest(approx,rightdownpoint,0)==-1):
+        rightbrink=1
+    # brink judge
+    if leftbrink:
+        rightflag = 1
+        print('find the left line')
+        time.sleep(1)
+        plan_act.append('custom/move_right_bit')
+        line_judge = 1
+    if rightbrink:
+        rightflag = 0
+        print('find the right line')
+        time.sleep(1)
+        plan_act.append('custom/move_left_bit')
+        line_judge = 1
+    # landmine judge
+    if (len(data['landmine']) > 0):
+        maxh = max(np.array(data['landmine']).reshape(2, -1)[1, :])
+        if maxh < H_THRESHOLD:
+            plan_act.append('custom/walk')
+        elif rightflag:
+            print('find the landmine')
+            time.sleep(1)
+            plan_act.append('custom/move_right')
+        else:
+            print('find the landmine')
+            time.sleep(1)
+            plan_act.append('custom/move_left')
+    elif line_judge == 0:
+        plan_act.append('custom/walk')
+    return plan_act
+def plan3():
+    plan_act=[]
+    plan_act.append('custom/walk')
+    plan_act.append('custom/145')
+    return plan_act
+def plan4(data):
+    plan_act=[]
+    yellow=0
+    for i in data['light']:
+        if i=='yellow':
+            print('find yellow')
+            yellow=1
+    if yellow==1:
+        plan_act.append('custom/walk')
+        plan_act.append('custom/walk')
+        plan_act.append('custom/walk')
+    return plan_act
+
+
+
+#initially set head
 PWMServo.setServo(1, 2150, 500)
 PWMServo.setServo(2, 1500, 500)
 time.sleep(0.5)
-
+#set video
 stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 img_proc = ImageProcessor(stream, DEBUG)
 
 while 1:
-    data = img_proc.analyse_objects()
-    print('main process\n')
-    act_plan = ActionPlanning(data)
-    rightflag = act_plan.plan_action(rightflag)
+    #setcamera
+    setcamera(state)
+    #getdata
+    data = img_proc.analyze_objects()
+    print('\n main process','\t state=',state)
+    if (len(data['track']) == 0):
+        print('!!!not recognize the track')
+        continue
+    #get state
+    state=setstate(state,data)
+    plan_act = []
+    if state==0:
+        plan_act=plan0()
+    if state==1:
+        plan_act=plan1()
+    if state==2:
+        plan_act=plan2(data)
+        print('go to state3')
+    if state==3:
+        plan_act=plan3()
+    if state==4:
+        plan_act=plan4(data)
+    plan2act(plan_act)
     time.sleep(0.4)
     print('rightflag', rightflag)
 print(data)

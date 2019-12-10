@@ -79,7 +79,7 @@ class ImageProcessor(object):
     def _get_frame(self):
         while not self._disposing.is_set() and self._cap.isOpened():
             _, self._frame = self._cap.read()
-            time.sleep(0.01)
+            time.sleep(0.005)
 
     def _refresh_monitor(self):
         cv2.imshow("Monitor", self.monitor)
