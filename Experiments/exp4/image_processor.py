@@ -18,7 +18,10 @@ LANDMINE_AREA_RATIO_THRESHOLD = 0.6
 BRINK_SOLIDITY_THRESHOLD = 0.6
 BRINK_AREA_RATIO_THRESHOLD = 0.5
 BRINK_ANGLE_DELTA = 10
-TRACK_SOLIDITY_THRESHOLD = 0.6
+POSSIBLE_TRACK_SOLIDITY_THRESHOLD = 0.6
+CANDIDATE_TRACK_SOLIDITY_THRESHOLD = 0.8
+CANNY_MIN_THRESHOLD = 50
+CANNY_MAX_THRESHOLD = 400
 TOP_LINE = int(0.01 * IMG_HEIGHT)
 BOTTOM_LINE = int(0.99 * IMG_HEIGHT)
 MIN_CONTOUR_AREA = {'white': 4000, 'red': 5000,
@@ -168,18 +171,22 @@ class ImageProcessor(object):
                     return 'brink'
 
             if self._debug:
-                prompt_unknown = 'unknown: area {}, solidity {:.3f}'.format(area, solidity)
+                prompt_unknown = 'unknown: area {}, solidity {:.3f}'.format(
+                    area, solidity)
                 if area_ratio_circle is not None:
-                    prompt_unknown = prompt_unknown + ', area_ratio_circle {:.3f}'.format(area_ratio_circle)
+                    prompt_unknown = prompt_unknown + \
+                        ', area_ratio_circle {:.3f}'.format(area_ratio_circle)
                 if area_ratio_rect is not None:
-                    prompt_unknown = prompt_unknown + ', area_ratio_rect {:.3f}'.format(area_ratio_rect)
+                    prompt_unknown = prompt_unknown + \
+                        ', area_ratio_rect {:.3f}'.format(area_ratio_rect)
                 if angle is not None:
-                    prompt_unknown = prompt_unknown + ', angle {:.3f}'.format(angle)
+                    prompt_unknown = prompt_unknown + \
+                        ', angle {:.3f}'.format(angle)
                 print(prompt_unknown)
 
             return 'unknown'
 
-    def _get_tracks(self, contours, prompt=''):
+    def _get_tracks(self, contours, strict=False):
         track_cur = None
         track_next = None
         max_area_cur = 0
@@ -189,8 +196,8 @@ class ImageProcessor(object):
             hull = cv2.convexHull(contour)
             hull_area = cv2.contourArea(hull)
             solidity = area / hull_area
-            print(solidity)
-            if solidity < TRACK_SOLIDITY_THRESHOLD:
+            threshold = CANDIDATE_TRACK_SOLIDITY_THRESHOLD if strict else POSSIBLE_TRACK_SOLIDITY_THRESHOLD
+            if solidity < threshold:
                 continue
 
             is_cur_track = False
@@ -207,7 +214,9 @@ class ImageProcessor(object):
                 track_next = contour
 
             if self._debug:
-                track_type = 'current' if is_cur_track else ('next' if is_next_track else 'unknown')
+                prompt = 'candidate ' if strict else 'possible'
+                track_type = 'current' if is_cur_track else (
+                    'next' if is_next_track else 'unknown')
                 print(prompt + 'track: area {}, {}'.format(area, track_type))
 
         return track_cur, track_next
@@ -215,34 +224,36 @@ class ImageProcessor(object):
     @staticmethod
     def _refine_track(img, track):
         # 标记图像中可能属于赛道的部分的位置
-        poly_track = [np.squeeze(track)]
+        mask_edge = np.zeros((IMG_HEIGHT, IMG_WIDTH))
+        mask_edge = cv2.drawContours(mask_edge, [track], 0, 1, 1).astype(bool)
         mask_track = np.zeros((IMG_HEIGHT, IMG_WIDTH))
-        cv2.fillPoly(mask_track, poly_track, 1)
-        mask_track = mask_track.astype(bool)
+        mask_track = cv2.drawContours(
+            mask_track, [track], 0, 1, cv2.FILLED).astype(bool)
 
         # 取得灰度图片，求取平均亮度及标准差
         img_track = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        max_gray = np.max(img_track[mask_track])
-        mean_gray = np.mean(img_track[mask_track])
-        std_gray = np.std(img_track[mask_track])
-
-        # 取得二值化的赛道图片
-        img_track = img_track.astype('uint8')
         img_track[~mask_track] = 0
-        threshold = (max_gray + mean_gray) / 2 - min(std_gray * 2.6, 56)
-        _, img_bin = cv2.threshold(img_track, threshold, 255, cv2.THRESH_BINARY)
+        mask_canny = cv2.Canny(img_track, CANNY_MIN_THRESHOLD,
+                               CANNY_MAX_THRESHOLD).astype(bool)
+        mask_edge = np.logical_or(mask_edge, mask_canny).astype('uint8')
 
         # 再提取赛道形状
         # 注意此处 OpenCV 3 的返回值是三元元组
         if CV_VERSION == '3':
-            (_, cnt_tracks, _) = cv2.findContours(
-                img_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 找出轮廓
+            (_, cnt_tracks, hierarchy) = cv2.findContours(
+                mask_edge, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
         else:
-            (cnt_tracks, _) = cv2.findContours(
-                img_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 找出轮廓
+            (cnt_tracks, hierarchy) = cv2.findContours(
+                mask_edge, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
+        for i in range(hierarchy[0].shape[0]):
+            if hierarchy[0][i][2] != -1:
+                cnt_tracks[i] = None
+
+        cnt_tracks = list(filter(lambda x: x is not None, cnt_tracks))
         cnt_tracks = list(filter(
             lambda x: cv2.contourArea(x) > MIN_CONTOUR_AREA['white'], cnt_tracks))
+
         return cnt_tracks
 
     @staticmethod
@@ -267,20 +278,21 @@ class ImageProcessor(object):
         # %% 识别信号灯
         keys_light = {'red', 'green', 'yellow'}
         contours_light = {key: value for key,
-                                         value in contours.items() if key in keys_light}
+                          value in contours.items() if key in keys_light}
         for i in contours_light:
             if len(contours_light[i]) > 0:
                 info['light'].append(i)
 
         # %% 识别赛道平面
-        track_cur, track_next = self._get_tracks(contours['white'], 'possible ')
-        # 对提取的赛道进行二次处理
+        track_cur, track_next = self._get_tracks(contours['white'], False)
+
+        # %% 对提取的赛道进行二次处理
         if track_cur is not None:
             tracks = self._refine_track(img_bgr, track_cur)
-            track_cur, _ = self._get_tracks(tracks, 'candidate ')
+            track_cur, _ = self._get_tracks(tracks, True)
         if track_next is not None:
             tracks = self._refine_track(img_bgr, track_next)
-            _, track_next = self._get_tracks(tracks, 'candidate ')
+            _, track_next = self._get_tracks(tracks, True)
 
         if track_cur is not None:
             track_cur_approx = self._approx_track(track_cur)
@@ -317,12 +329,14 @@ class ImageProcessor(object):
 
                 # 仅保留和当前和下一个赛道接近，或者接近图像上下两端的边缘
                 if track_cur is not None:
-                    distance_cur = cv2.pointPolygonTest(track_cur, bottom_most, True)
+                    distance_cur = cv2.pointPolygonTest(
+                        track_cur, bottom_most, True)
                 else:
                     distance_cur = bottom_most[1] - (IMG_HEIGHT - 1)
 
                 if track_next is not None:
-                    distance_next = cv2.pointPolygonTest(track_next, top_most, True)
+                    distance_next = cv2.pointPolygonTest(
+                        track_next, top_most, True)
                 else:
                     distance_next = -top_most[1]
 
@@ -343,14 +357,16 @@ class ImageProcessor(object):
             x1, y1 = box_cur[order[2]][0], box_cur[order[2]][1]
             x2, y2 = box_cur[order[3]][0], box_cur[order[3]][1]
             y_bt1 = int((-x2 * y1 + x1 * y2) / (x1 - x2))
-            y_bt2 = int(((IMG_WIDTH - 1 - x2) * y1 - (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
+            y_bt2 = int(((IMG_WIDTH - 1 - x2) * y1 -
+                         (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
 
             # 提取上方矩形边界靠上的端点，转换为直线
             order = np.argsort(box_next[:, 1])
             x1, y1 = box_next[order[0]][0], box_next[order[0]][1]
             x2, y2 = box_next[order[1]][0], box_next[order[1]][1]
             y_top1 = int((-x2 * y1 + x1 * y2) / (x1 - x2))
-            y_top2 = int(((IMG_WIDTH - 1 - x2) * y1 - (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
+            y_top2 = int(((IMG_WIDTH - 1 - x2) * y1 -
+                          (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
 
             ditch = np.array([[IMG_WIDTH - 1, y_bt2], [0, y_bt1],
                               [0, y_top1], [IMG_WIDTH - 1, y_top2]])
