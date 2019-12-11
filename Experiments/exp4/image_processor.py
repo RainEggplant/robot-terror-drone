@@ -382,6 +382,48 @@ class ImageProcessor(object):
             monitor = cv2.drawContours(monitor, [ditch], 0, (0, 0, 255), 2)
             info['ditch'] = ditch
 
+        # 判断开合门
+        info['block'] = False
+        # 检测图像内是否有开合门。有开合门则返回包含开合门位置的矩形框，否则返回空元组
+	    # 返回为三元tuple：((x, y), (w, h), angle)
+	    # (x, y)为中心坐标，(w, h)为矩形宽高，angle为矩形相对水平位置的倾斜角度，范围为-90~90
+	    img_h, img_w = rows, cols
+	    img_yellow = np.where((img_hsv[:, :, 0] >= 10) & (img_hsv[:, :, 0] <= 35) & (img_hsv[:, :, 1] >= 130) & (img_hsv[:, :, 2] >= 130), 255, 0)
+	    img_yellow = np.array(img_yellow, np.uint8)
+	    (_, img_yellow_cnts, _) = cv2.findContours(img_yellow, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+	    cnt_rect = []
+	    road_block = ()
+	    # 如果完全没有找到黄色Contour，直接返回空tuple
+	    if img_yellow_cnts:
+	        for cnt in img_yellow_cnts:
+	            # 去除面积过小的Contour
+	            if math.fabs(cv2.contourArea(cnt)) <= 2.5e-4 * img_h * img_w:
+	                continue
+	            cnt_min_rect = cv2.minAreaRect(cnt)
+	            cnt_box = cv2.boxPoints(cnt_min_rect)
+	            cnt_box = np.int0(cnt_box)
+	            cnt_rect.append(cnt_box)
+
+	    road_block_cnt = []
+	    # 如果没有足够大的黄色Contour，直接返回空tuple
+	    if cnt_rect:
+	        for cnt in cnt_rect:
+	            if np.all(cnt == cnt_rect[0]):
+	                road_block_cnt = cnt
+	            else:
+	                road_block_cnt = np.append(road_block_cnt, cnt, axis=0)
+	        road_block = cv2.minAreaRect(road_block_cnt)
+	        # road_block_box = cv2.boxPoints(road_block)
+	        # road_block_box = np.int0(road_block_box)
+	        # cv2.drawContours(img, cnt_rect, -1, (255, 0, 255), 2)
+	        # cv2.drawContours(img, [road_block_box], -1, (255, 255, 0), 2)
+
+	    if road_block:
+	    	# 待调整
+	    	if math.fabs(road_block[2]) <= 30:
+	    		info['block'] = True
+
         self.monitor = monitor
         if self._debug:
             self._refresh_monitor()
