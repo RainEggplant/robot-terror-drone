@@ -53,7 +53,7 @@ THETA_THRESHOLD=3
 
 rightflag = 1
 #go to right
-state=4
+state=2
 #0-go straight and stop
 #1-step
 #2-landmine
@@ -88,6 +88,9 @@ def setstate(state,data):
     frontbrink=0
     yellow=0
     red=0
+    theta=0
+    if 'ditch' in data:
+        theta=gettheta(data['ditch'])
     for i in data['light']:
         if i == 'red':
             print('find red')
@@ -104,10 +107,12 @@ def setstate(state,data):
     if (state==1):
         state=2
         return state
-    if (state==2)&('ditch' in data):
+    if (state==2)&(frontbrink):
         state=3
         return state
-    if (state==3):
+    if (state==3)&(np.abs(theta)<THETA_THRESHOLD):
+        print(theta)
+        print('go to state 4')
         state=4
         return state
     return state
@@ -156,7 +161,7 @@ def plan2(data):
     if (len(data['landmine']) > 0):
         maxh = max(np.array(data['landmine']).reshape(2, -1)[1, :])
         if maxh < H_THRESHOLD:
-            plan_act.append('custom/walk')
+            plan_act.append('custom/walk_12_11')
         elif rightflag:
             print('find the landmine')
             time.sleep(1)
@@ -170,14 +175,20 @@ def plan2(data):
     return plan_act
 def plan3(data):
     plan_act=[]
+    if 'ditch' not in data:
+        plan_act.append('custom/walk')
+        return plan_act
     theta=gettheta(data['ditch'])
     if np.abs(theta)<THETA_THRESHOLD:
         plan_act.append('custom/walk')
         plan_act.append('custom/145')
     elif theta<0:
-        plan_act.append('custom/turn_to_right')
-    else:
+        print('!!!turn to left')
         plan_act.append('custom/turn_to_left')
+        plan_act.append('custom/turn_to_left')
+    else:
+        print('!!!turn to right')
+        plan_act.append('custom/turn_to_right')
     return plan_act
 def plan4(data):
     plan_act=[]
@@ -209,7 +220,6 @@ while 1:
         print('!!!not recognize the track')
         continue
     #get state
-    state=setstate(state,data)
     plan_act = []
     if state==0:
         plan_act=plan0()
@@ -225,6 +235,7 @@ while 1:
     plan2act(plan_act)
     time.sleep(0.4)
     print('rightflag', rightflag)
+    state=setstate(state,data)
 print(data)
 print('Press Enter to exit.')
 input()
