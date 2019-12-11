@@ -48,6 +48,8 @@ RUNNING = 1
 leftdownpoint=(W/6,2/3*H)
 rightdownpoint=(W/6*5,2/3*H)
 frontpoint=(W/2,H/3)
+PI=3.1415926535
+THETA_THRESHOLD=3
 
 rightflag = 1
 #go to right
@@ -57,6 +59,15 @@ state=0
 #2-landmine
 #3-gap
 #4-door
+# get theta
+def gettheta(ditch):
+    ditch=ditch.reshape(-1,2)
+    quap=ditch[ditch.argsort(axis=0)[:,0]]
+    k1=(quap[0,1]-quap[2,1])/(quap[0,0]-quap[2,0])
+    k2=(quap[1,1]-quap[3,1])/(quap[1,0]-quap[3,0])
+    k=(k1+k2)/2
+    theta=np.arctan(k)*180/PI
+    return theta
 # plan to act
 def plan2act(plan_act):
     for i in plan_act:
@@ -153,21 +164,23 @@ def plan2(data):
     elif line_judge == 0:
         plan_act.append('custom/walk')
     return plan_act
-def plan3():
+def plan3(data):
     plan_act=[]
-    plan_act.append('custom/walk')
-    plan_act.append('custom/145')
+    theta=gettheta(data['ditch'])
+    if np.abs(theta)<THETA_THRESHOLD:
+        plan_act.append('custom/walk')
+        plan_act.append('custom/145')
+    elif theta<0:
+        plan_act.append('custom/turn_to_right')
+    else:
+        plan_act.append('custom/turn_to_left')
     return plan_act
 def plan4(data):
     plan_act=[]
     yellow=0
-    for i in data['light']:
-        if i=='yellow':
-            print('find yellow')
-            yellow=1
-    if yellow==1:
+    if data['block']==0:
         plan_act.append('custom/walk')
-        plan_act.append('custom/walk')
+    else:
         plan_act.append('custom/walk')
     return plan_act
 
