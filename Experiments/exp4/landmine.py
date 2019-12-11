@@ -53,7 +53,7 @@ THETA_THRESHOLD=3
 
 rightflag = 1
 #go to right
-state=0
+state=4
 #0-go straight and stop
 #1-step
 #2-landmine
@@ -75,11 +75,15 @@ def plan2act(plan_act):
         print('act= ',i)
 def setcamera(state):
     if state==4:
-        PWMServo.setServo(1, 2100, 500)
+        PWMServo.setServo(1, 1700, 500)
+        #time.sleep(0.6)
         PWMServo.setServo(2, 1500, 500)
+        #time.sleep(0.6)
     else:
         PWMServo.setServo(1, 2100, 500)
+        #time.sleep(0.6)
         PWMServo.setServo(2, 1500, 500)
+        #time.sleep(0.6)
 def setstate(state,data):
     frontbrink=0
     yellow=0
@@ -100,7 +104,7 @@ def setstate(state,data):
     if (state==1):
         state=2
         return state
-    if (state==2)&(frontbrink==1):
+    if (state==2)&('ditch' in data):
         state=3
         return state
     if (state==3):
@@ -178,10 +182,11 @@ def plan3(data):
 def plan4(data):
     plan_act=[]
     yellow=0
-    if data['block']==0:
+    if not data['block']:
+        print('no')
         plan_act.append('custom/walk')
     else:
-        plan_act.append('custom/walk')
+        print('!!!yes')
     return plan_act
 
 
@@ -214,7 +219,7 @@ while 1:
         plan_act=plan2(data)
         print('go to state3')
     if state==3:
-        plan_act=plan3()
+        plan_act=plan3(data)
     if state==4:
         plan_act=plan4(data)
     plan2act(plan_act)

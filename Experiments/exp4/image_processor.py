@@ -7,7 +7,7 @@ import cv2
 
 # %% 常数定义
 CV_VERSION = cv2.__version__.split('.')[0]  # pylint: disable=no-member
-USE_CLAHE = True
+USE_CLAHE = False
 IMG_WIDTH = 320
 IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
@@ -73,8 +73,7 @@ class ImageProcessor(object):
         if not self._disposed:
             self._disposing.set()
             self._cap.release()
-            if self._debug:
-                cv2.destroyAllWindows()
+            cv2.destroyAllWindows()
 
     def _get_frame(self):
         while not self._disposing.is_set() and self._cap.isOpened():
@@ -275,7 +274,9 @@ class ImageProcessor(object):
 
         info = dict()
         info['light'] = []
-
+        info['track'] = []
+        info['track_next'] = []
+        info['landmine'] = []
         # %% 识别信号灯
         keys_light = {'red', 'green', 'yellow'}
         contours_light = {key: value for key,
@@ -308,7 +309,6 @@ class ImageProcessor(object):
                 monitor, [track_next_approx], -1, COLOR_BGR['yellow'], 3)
 
         # %% 识别地雷和边缘
-        info['landmine'] = []
         brink_cur = []
         brink_next = []
         for contour in contours['black']:
@@ -431,8 +431,7 @@ class ImageProcessor(object):
                 info['block'] = True
 
         self.monitor = monitor
-        if self._debug:
-            self._refresh_monitor()
+        self._refresh_monitor()
 
         return info
 
