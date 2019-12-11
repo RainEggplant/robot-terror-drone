@@ -73,7 +73,7 @@ def gettheta(ditch):
 def plan2act(plan_act):
     for i in plan_act:
         SSR.running_action_group(i, 1)
-        print('act= ',i)
+        print('\t action= ',i)
 def setcamera(state):
     if state==4:
         PWMServo.setServo(1, 1700, 500)
@@ -90,8 +90,6 @@ def setstate(state,data):
     yellow=0
     red=0
     theta=0
-    if 'ditch' in data:
-        theta=gettheta(data['ditch'])
     for i in data['light']:
         if i == 'red':
             print('find red')
@@ -99,9 +97,12 @@ def setstate(state,data):
         if i=='yellow':
             print('find yellow')
             yellow=1
-    approx = data['track']
-    if (cv2.pointPolygonTest(approx,frontpoint,0)==-1):
-        frontbrink=1
+    if 'track' in data:
+        approx = data['track']
+        if (cv2.pointPolygonTest(approx,frontpoint,0)==-1):
+            frontbrink=1
+    else:
+        print('!!!!!! not find the track, state change warning!!!!!!')
     if (state==0)&(red==1):
         state=1
         return state
@@ -112,7 +113,6 @@ def setstate(state,data):
         state=3
         return state
     if (state==3) and (somersault):
-        print('go to state 4')
         state=4
         return state
     return state
@@ -172,12 +172,13 @@ def plan2(data):
             plan_act.append('custom/move_left')
     elif line_judge == 0:
         plan_act.append('custom/walk')
+    print('rightflag:  ',rightflag)
     return plan_act
 def plan3(data):
     global somersault
     plan_act=[]
     if 'ditch' not in data:
-        print('not find ditch')
+        print('!!!!!!not find ditch warning!!!!!!')
         plan_act.append('custom/walk')
         return plan_act
     theta=gettheta(data['ditch'])
@@ -186,20 +187,20 @@ def plan3(data):
         plan_act.append('custom/145')
         somersault = 1
     elif theta<0:
-        print('!!!turn to left')
+        print('need to turn to left')
         plan_act.append('custom/turn_to_left')
     else:
-        print('!!!turn to right')
+        print('need to turn to right')
         plan_act.append('custom/turn_to_right')
     return plan_act
 def plan4(data):
     plan_act=[]
     yellow=0
     if not data['block']:
-        print('no')
+        print('block:  0')
         plan_act.append('custom/walk')
     else:
-        print('!!!yes')
+        print('block:  1')
     return plan_act
 
 
@@ -218,10 +219,11 @@ while 1:
     #getdata
     data = img_proc.analyze_objects()
     print('\n main process','\t state=',state)
-    if (len(data['track']) == 0)and ('ditch' not in data):
-        print('!!!not recognize the track or ditch')
+    if ('track' not in data)and ('ditch' not in data)and('track_next' not in data):
+        print('!!!!!!recognize nothing')
         continue
     #get state
+    state=setstate(state,data)
     plan_act = []
     if state==0:
         plan_act=plan0()
@@ -229,16 +231,11 @@ while 1:
         plan_act=plan1()
     if state==2:
         plan_act=plan2(data)
-        print('go to state3')
     if state==3:
         plan_act=plan3(data)
     if state==4:
         plan_act=plan4(data)
     plan2act(plan_act)
-    print(somersault,'---------')
     time.sleep(0.5)
-    print('rightflag', rightflag)
-    state=setstate(state,data)
-print(data)
 print('Press Enter to exit.')
 input()
