@@ -49,9 +49,10 @@ leftdownpoint=(W/6,2/3*H)
 rightdownpoint=(W/6*5,2/3*H)
 frontpoint=(W/2,H/3)
 PI=3.1415926535
-THETA_THRESHOLD=3
+THETA_THRESHOLD=8
 
 rightflag = 1
+somersault = 0
 #go to right
 state=2
 #0-go straight and stop
@@ -110,8 +111,7 @@ def setstate(state,data):
     if (state==2)&(frontbrink):
         state=3
         return state
-    if (state==3)&(np.abs(theta)<THETA_THRESHOLD):
-        print(theta)
+    if (state==3) and (somersault):
         print('go to state 4')
         state=4
         return state
@@ -174,17 +174,19 @@ def plan2(data):
         plan_act.append('custom/walk')
     return plan_act
 def plan3(data):
+    global somersault
     plan_act=[]
     if 'ditch' not in data:
+        print('not find ditch')
         plan_act.append('custom/walk')
         return plan_act
     theta=gettheta(data['ditch'])
     if np.abs(theta)<THETA_THRESHOLD:
         plan_act.append('custom/walk')
         plan_act.append('custom/145')
+        somersault = 1
     elif theta<0:
         print('!!!turn to left')
-        plan_act.append('custom/turn_to_left')
         plan_act.append('custom/turn_to_left')
     else:
         print('!!!turn to right')
@@ -216,8 +218,8 @@ while 1:
     #getdata
     data = img_proc.analyze_objects()
     print('\n main process','\t state=',state)
-    if (len(data['track']) == 0):
-        print('!!!not recognize the track')
+    if (len(data['track']) == 0)and ('ditch' not in data):
+        print('!!!not recognize the track or ditch')
         continue
     #get state
     plan_act = []
@@ -233,7 +235,8 @@ while 1:
     if state==4:
         plan_act=plan4(data)
     plan2act(plan_act)
-    time.sleep(0.4)
+    print(somersault,'---------')
+    time.sleep(0.5)
     print('rightflag', rightflag)
     state=setstate(state,data)
 print(data)
