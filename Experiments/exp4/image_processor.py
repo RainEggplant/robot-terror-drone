@@ -390,7 +390,10 @@ class ImageProcessor(object):
 	    img_h, img_w = rows, cols
 	    img_yellow = np.where((img_hsv[:, :, 0] >= 10) & (img_hsv[:, :, 0] <= 35) & (img_hsv[:, :, 1] >= 130) & (img_hsv[:, :, 2] >= 130), 255, 0)
 	    img_yellow = np.array(img_yellow, np.uint8)
-	    (_, img_yellow_cnts, _) = cv2.findContours(img_yellow, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	    if CV_VERSION == '3':
+		(_, img_yellow_cnts, _) = cv2.findContours(img_yellow, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	    else:
+		(img_yellow_cnts, _) = cv2.findContours(img_yellow, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 	    cnt_rect = []
 	    road_block = ()
