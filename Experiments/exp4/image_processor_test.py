@@ -2,7 +2,7 @@ import time
 from image_processor import ImageProcessor
 
 # stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
-stream = "http://192.168.137.47:8080/video"
+stream = "http://192.168.137.219:8080/video"
 # stream = 0
 img_proc = ImageProcessor(stream, True)
 while 1:

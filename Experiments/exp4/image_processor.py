@@ -20,13 +20,13 @@ BRINK_AREA_RATIO_THRESHOLD = 0.5
 BRINK_ANGLE_DELTA = 10
 POSSIBLE_TRACK_SOLIDITY_THRESHOLD = 0.6
 CANDIDATE_TRACK_SOLIDITY_THRESHOLD = 0.8
-CANNY_MIN_THRESHOLD = 50
-CANNY_MAX_THRESHOLD = 400
+CANNY_MIN_THRESHOLD = 36
+CANNY_MAX_THRESHOLD = 225
 TOP_LINE = int(0.01 * IMG_HEIGHT)
 BOTTOM_LINE = int(0.99 * IMG_HEIGHT)
-MIN_CONTOUR_AREA = {'white': 4000, 'red': 5000,
+MIN_CONTOUR_AREA = {'white': 3000, 'red': 5000,
                     'green': 5000, 'yellow': 5000, 'black': 150}
-MIN_TRACK_BRINK_DISTANCE = -6
+MIN_TRACK_BRINK_DISTANCE = -10
 
 # 检视平面坐标点
 XT_SCAN = np.arange(0.1 * IMG_WIDTH, IMG_WIDTH, 0.2 * IMG_WIDTH).astype(int)
@@ -39,7 +39,7 @@ COLOR_RANGE = {
     'red': [(0, 130, 165), (10, 255, 255)],
     'green': [(67, 114, 140), (104, 255, 255)],
     'yellow': [(30, 90, 186), (42, 255, 255)],
-    'black': [(0, 0, 0), (255, 255, 64)]
+    'black': [(0, 0, 0), (255, 255, 68)]
 }
 
 COLOR_BGR = {
@@ -92,7 +92,7 @@ class ImageProcessor(object):
         # 缩小时保持比例4：3, 且缩小后的分辨率应该是整数
         img_bgr = cv2.resize(image, (IMG_WIDTH, IMG_HEIGHT),
                              interpolation=cv2.INTER_CUBIC)  # 将图片缩放
-        img_bgr = cv2.GaussianBlur(img_bgr, (3, 3), 0)  # 高斯模糊
+        # img_bgr = cv2.GaussianBlur(img_bgr, (3, 3), 0)  # 高斯模糊
         img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
 
         if USE_CLAHE:
@@ -214,10 +214,11 @@ class ImageProcessor(object):
                 track_next = contour
 
             if self._debug:
-                prompt = 'candidate ' if strict else 'possible'
+                prompt = 'candidate ' if strict else 'possible '
                 track_type = 'current' if is_cur_track else (
                     'next' if is_next_track else 'unknown')
-                print(prompt + 'track: area {}, {}'.format(area, track_type))
+                print(
+                    prompt + 'track: area {}, solidity {}, {}'.format(area, solidity, track_type))
 
         return track_cur, track_next
 
@@ -324,8 +325,10 @@ class ImageProcessor(object):
                 rect = cv2.minAreaRect(contour)
                 box = cv2.boxPoints(rect)
                 box = np.int0(box)
-                bottom_most = tuple(box[np.argmax(box[:, 1])])
-                top_most = tuple(box[np.argmin(box[:, 1])])
+                bottom_most = tuple(
+                    box[np.argmax(box[:, 1])])  # pylint: disable=unsubscriptable-object
+                top_most = tuple(box[np.argmin(box[:, 1])]  # pylint: disable=unsubscriptable-object
+                                 )
 
                 # 仅保留和当前和下一个赛道接近，或者接近图像上下两端的边缘
                 if track_cur is not None:
@@ -346,24 +349,30 @@ class ImageProcessor(object):
                     brink_next.append(rect)
 
         # %% 判断沟壑
-        if len(brink_cur) > 0 and len(brink_next) > 0:
+        if ((track_cur is not None or track_next is not None) and
+                len(brink_cur) > 0 and len(brink_next) > 0):
             rect_cur = max(brink_cur, key=lambda r: r[0][1])
             rect_next = min(brink_next, key=lambda r: r[0][1])
             box_cur = cv2.boxPoints(rect_cur)
             box_next = cv2.boxPoints(rect_next)
 
             # 提取下方矩形边界靠下的端点，转换为直线
-            order = np.argsort(box_cur[:, 1])
-            x1, y1 = box_cur[order[2]][0], box_cur[order[2]][1]
-            x2, y2 = box_cur[order[3]][0], box_cur[order[3]][1]
+            distance_left = [x**2 + (y - IMG_HEIGHT + 1)
+                             ** 2 for x, y in box_cur]
+            distance_right = [(x - IMG_WIDTH + 1)**2 +
+                              (y - IMG_HEIGHT + 1)**2 for x, y in box_cur]
+            x1, y1 = box_cur[np.argmin(distance_left)]
+            x2, y2 = box_cur[np.argmin(distance_right)]
             y_bt1 = int((-x2 * y1 + x1 * y2) / (x1 - x2))
             y_bt2 = int(((IMG_WIDTH - 1 - x2) * y1 -
                          (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
 
             # 提取上方矩形边界靠上的端点，转换为直线
-            order = np.argsort(box_next[:, 1])
-            x1, y1 = box_next[order[0]][0], box_next[order[0]][1]
-            x2, y2 = box_next[order[1]][0], box_next[order[1]][1]
+            distance_left = [x**2 + y**2 for x, y in box_next]
+            distance_right = [(x - IMG_WIDTH + 1)**2 +
+                              y**2 for x, y in box_next]
+            x1, y1 = box_next[np.argmin(distance_left)]
+            x2, y2 = box_next[np.argmin(distance_right)]
             y_top1 = int((-x2 * y1 + x1 * y2) / (x1 - x2))
             y_top2 = int(((IMG_WIDTH - 1 - x2) * y1 -
                           (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
