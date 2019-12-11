@@ -161,13 +161,9 @@ def plan3():
 def plan4(data):
     plan_act=[]
     yellow=0
-    for i in data['light']:
-        if i=='yellow':
-            print('find yellow')
-            yellow=1
-    if yellow==1:
+    if data['block']==0:
         plan_act.append('custom/walk')
-        plan_act.append('custom/walk')
+    else:
         plan_act.append('custom/walk')
     return plan_act
 
