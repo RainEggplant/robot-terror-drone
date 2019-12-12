@@ -67,6 +67,19 @@ state=2
 #3-gap
 #4-door
 # get theta
+def linefit(a):
+    a=np.array(a)
+    len_a=np.size(a,0)
+    ones=np.ones(len_a).reshape(-1,1)
+    A=np.hstack((a,ones))
+    B=np.dot(A.T,A)
+    D,V=np.linalg.eig(B)
+    D=np.abs(D)
+    vec=V[:,np.where(D==np.min(D))]
+    vec.reshape(-1,1)
+    k=-vec[0]/vec[1]
+    b=-vec[2]/vec[1]
+    return k,b
 def gethoritheta(ditch):
     ditch=ditch.reshape(-1,2)
     quap=ditch[ditch.argsort(axis=0)[:,0]]
@@ -82,9 +95,8 @@ def getvertheta(track,left):
     else:
         indm=np.where((track[:,0]>XTHRESOLDS)==1)
     track=track[indm]
-    regr = linear_model.LinearRegression()
-    regr.fit(track[:,0].reshape(-1,1),track[:,1].reshape(-1,1))
-    k = 1/regr.coef_
+    k,b=linefit(track)
+    k = 1/k
     theta=np.arctan(k)*180/PI
     return theta
 
