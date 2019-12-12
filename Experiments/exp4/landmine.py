@@ -53,6 +53,9 @@ THETA_THRESHOLD=8
 
 rightflag = 1
 somersault = 0
+check=0
+leftdata=[]
+rightdata=[]
 #go to right
 state=2
 #0-go straight and stop
@@ -75,16 +78,33 @@ def plan2act(plan_act):
         SSR.running_action_group(i, 1)
         print('\t action= ',i)
 def setcamera(state):
-    if state==4:
-        PWMServo.setServo(1, 1700, 500)
-        #time.sleep(0.6)
-        PWMServo.setServo(2, 1500, 500)
-        #time.sleep(0.6)
+    global check
+    if check==0:
+        if state==4:
+            PWMServo.setServo(1, 1700, 500)
+            #time.sleep(0.6)
+            PWMServo.setServo(2, 1500, 500)
+            #time.sleep(0.6)
+        else:
+            PWMServo.setServo(1, 2100, 500)
+            #time.sleep(0.6)
+            PWMServo.setServo(2, 1500, 500)
+            #time.sleep(0.6)
+    elif check==1:
+        PWMServo.setServo(1, 2100, 500)
+        PWMServo.setServo(2, 500, 500)
+        check=2
+    elif check==2:
+        PWMServo.setServo(1, 2100, 500)
+        PWMServo.setServo(2, 1000, 500)
+        check=3
     else:
         PWMServo.setServo(1, 2100, 500)
         #time.sleep(0.6)
         PWMServo.setServo(2, 1500, 500)
         #time.sleep(0.6)
+        check=0
+
 def setstate(state,data):
     frontbrink=0
     yellow=0
@@ -176,10 +196,12 @@ def plan2(data):
     return plan_act
 def plan3(data):
     global somersault
+    global check
     plan_act=[]
     if 'ditch' not in data:
         print('!!!!!!not find ditch warning!!!!!!')
-        plan_act.append('custom/walk')
+        print('change the check')
+        check = 1
         return plan_act
     theta=gettheta(data['ditch'])
     if np.abs(theta)<THETA_THRESHOLD:
@@ -202,6 +224,22 @@ def plan4(data):
     else:
         print('block:  1')
     return plan_act
+def plancheck(data):
+    plan_act=[]
+    global leftdata
+    global rightdata
+    if 'ditch' not in data:
+        if 'ditch' in leftdata:
+            plan_act.append('custom/turn_to_left')
+            return plan_act
+        if 'ditch' in rightdata:
+            plan_act.append('custom/turn_to_right')
+            return plan_act
+        else:
+            print('!!!!!!!warning not find the ditch in left and right and front data!!!')
+            plan_act.append('custom/walk')
+    return plan_act
+
 
 
 
@@ -214,6 +252,7 @@ stream = "http://127.0.0.1:8080/?action=stream?dummy=param.mjpg"
 img_proc = ImageProcessor(stream, DEBUG)
 
 while 1:
+    plan_act=[]
     #setcamera
     setcamera(state)
     #getdata
@@ -222,19 +261,29 @@ while 1:
     if ('track' not in data)and ('ditch' not in data)and('track_next' not in data):
         print('!!!!!!recognize nothing')
         continue
-    #get state
-    state=setstate(state,data)
-    plan_act = []
-    if state==0:
-        plan_act=plan0()
-    if state==1:
-        plan_act=plan1()
-    if state==2:
-        plan_act=plan2(data)
-    if state==3:
-        plan_act=plan3(data)
-    if state==4:
-        plan_act=plan4(data)
+    #
+    if check!=0:
+        print('go to the check interrupt stage\ncheck:',check)
+        if check==1:
+            leftdata=data
+        if check==2:
+            rightdata=data
+        if check==3:
+            plan_act=plancheck(data)
+    else:
+        #get and change the state main stage
+        state=setstate(state,data)
+        plan_act = []
+        if state==0:
+            plan_act=plan0()
+        if state==1:
+            plan_act=plan1()
+        if state==2:
+            plan_act=plan2(data)
+        if state==3:
+            plan_act=plan3(data)
+        if state==4:
+            plan_act=plan4(data)
     plan2act(plan_act)
     time.sleep(0.5)
 print('Press Enter to exit.')
