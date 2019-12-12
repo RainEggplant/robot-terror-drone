@@ -243,11 +243,12 @@ def plan3(data):
 def plan4(data):
     plan_act=[]
     yellow=0
-    if not data['block']:
-        print('block:  0')
-        plan_act.append('custom/walk')
-    else:
-        print('block:  1')
+    plan_act.append('custom/pa')
+    #if not data['block']:
+    #    print('block:  0')
+    #    plan_act.append('custom/walk')
+    #else:
+    #    print('block:  1')
     return plan_act
 def plancheck(data):
     plan_act=[]
