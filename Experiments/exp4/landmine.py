@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import cv2
 from image_processor import ImageProcessor
+from sklearn import linear_model
 
 sys.path.append('../..')  # nopep8
 import Serial_Servo_Running as SSR
@@ -49,7 +50,9 @@ leftdownpoint=(W/6,2/3*H)
 rightdownpoint=(W/6*5,2/3*H)
 frontpoint=(W/2,H/3)
 PI=3.1415926535
-THETA_THRESHOLD=8
+XTHRESOLDS=W/2
+THETA_VER_THRESHOLD=8
+THETA_HORI_THRESHOLD=8
 
 rightflag = 1
 somersault = 0
@@ -64,7 +67,7 @@ state=2
 #3-gap
 #4-door
 # get theta
-def gettheta(ditch):
+def gethoritheta(ditch):
     ditch=ditch.reshape(-1,2)
     quap=ditch[ditch.argsort(axis=0)[:,0]]
     k1=(quap[0,1]-quap[2,1])/(quap[0,0]-quap[2,0])
@@ -72,6 +75,19 @@ def gettheta(ditch):
     k=(k1+k2)/2
     theta=np.arctan(k)*180/PI
     return theta
+def getvertheta(track,left):
+    track=track.reshape(-1,2)
+    if left==1:
+        indm=np.where((track[:,0]<XTHRESOLDS)==1)
+    else:
+        indm=np.where((track[:,0]>XTHRESOLDS)==1)
+    track=track[indm]
+    regr = linear_model.LinearRegression()
+    regr.fit(track[:,0].reshape(-1,1),track[:,1].reshape(-1,1))
+    k = 1/regr.coef_
+    theta=np.arctan(k)*180/PI
+    return theta
+
 # plan to act
 def plan2act(plan_act):
     for i in plan_act:
@@ -168,14 +184,23 @@ def plan2(data):
     if leftbrink:
         rightflag = 1
         print('find the left line')
-        time.sleep(1)
-        plan_act.append('custom/move_right_bit')
+        theta=getvertheta(data['track'],left=1)
+        if np.abs(theta)<THETA_VER_THRESHOLD:
+            plan_act.append('custom/move_right_bit')
+        else:
+            plan_act.append('custom/move_right_bit')
+            plan_act.append('custom/turn_to_right')
+        print('find the left line,theta is: ',theta)
         line_judge = 1
     if rightbrink:
         rightflag = 0
-        print('find the right line')
-        time.sleep(1)
-        plan_act.append('custom/move_left_bit')
+        theta=getvertheta(data['track'],left=0)
+        if np.abs(theta)<THETA_VER_THRESHOLD:
+            plan_act.append('custom/move_left_bit')
+        else:
+            plan_act.append('custom/move_left_bit')
+            plan_act.append('custom/turn_to_left')
+        print('find the right line,theta is: ',theta)
         line_judge = 1
     # landmine judge
     if (len(data['landmine']) > 0):
@@ -203,8 +228,8 @@ def plan3(data):
         print('change the check')
         check = 1
         return plan_act
-    theta=gettheta(data['ditch'])
-    if np.abs(theta)<THETA_THRESHOLD:
+    theta=gethoritheta(data['ditch'])
+    if np.abs(theta)<THETA_HORI_THRESHOLD:
         plan_act.append('custom/walk')
         plan_act.append('custom/145')
         somersault = 1
