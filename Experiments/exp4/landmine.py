@@ -6,7 +6,6 @@ import numpy as np
 import sys
 import cv2
 from image_processor import ImageProcessor
-from sklearn import linear_model
 
 sys.path.append('../..')  # nopep8
 import Serial_Servo_Running as SSR
@@ -67,6 +66,7 @@ state=2
 #3-gap
 #4-door
 # get theta
+
 def linefit(a):
     a=np.array(a)
     len_a=np.size(a,0)
@@ -80,6 +80,7 @@ def linefit(a):
     k=-vec[0]/vec[1]
     b=-vec[2]/vec[1]
     return k,b
+
 def gethoritheta(ditch):
     ditch=ditch.reshape(-1,2)
     quap=ditch[ditch.argsort(axis=0)[:,0]]
@@ -88,6 +89,7 @@ def gethoritheta(ditch):
     k=(k1+k2)/2
     theta=np.arctan(k)*180/PI
     return theta
+  
 def getvertheta(track,left):
     track=track.reshape(-1,2)
     if left==1:
@@ -252,15 +254,17 @@ def plan3(data):
         print('need to turn to right')
         plan_act.append('custom/turn_to_right')
     return plan_act
+  
 def plan4(data):
     plan_act=[]
     yellow=0
-    if not data['block']:
-        print('block:  0')
-        plan_act.append('custom/walk')
-    else:
-        print('block:  1')
-    return plan_act
+    plan_act.append('custom/pa')
+    #if not data['block']:
+    #    print('block:  0')
+    #    plan_act.append('custom/walk')
+    #else:
+    #    print('block:  1')
+  
 def plancheck(data):
     plan_act=[]
     global leftdata
@@ -276,6 +280,23 @@ def plancheck(data):
             print('!!!!!!!warning not find the ditch in left and right and front data!!!')
             plan_act.append('custom/walk')
     return plan_act
+  
+def plancheck(data):
+    plan_act=[]
+    global leftdata
+    global rightdata
+    if 'ditch' not in data:
+        if 'ditch' in leftdata:
+            plan_act.append('custom/turn_to_left')
+            return plan_act
+        if 'ditch' in rightdata:
+            plan_act.append('custom/turn_to_right')
+            return plan_act
+        else:
+            print('!!!!!!!warning not find the ditch in left and right and front data!!!')
+            plan_act.append('custom/walk')
+    return plan_act
+
 
 
 
