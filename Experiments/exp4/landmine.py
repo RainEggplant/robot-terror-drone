@@ -42,12 +42,12 @@ else:
 
 W = 320
 H = 240
-H_THRESHOLD = 100
+H_THRESHOLD = 130
 FALL_THRESHOLD = 20
 RUNNING = 1
 leftdownpoint=(W/6,2/3*H)
 rightdownpoint=(W/6*5,2/3*H)
-frontpoint=(W/2,H/3)
+frontpoint=(W/2,H/2)
 PI=3.1415926535
 XTHRESOLDS=W/2
 THETA_VER_THRESHOLD=8
@@ -58,7 +58,7 @@ somersault = 0
 check=0
 leftdata=[]
 rightdata=[]
-#go to right
+#go to rightS
 state=2
 #0-go straight and stop
 #1-step
@@ -104,9 +104,10 @@ def getvertheta(track,left):
 
 # plan to act
 def plan2act(plan_act):
-    for i in plan_act:
-        SSR.running_action_group(i, 1)
-        print('\t action= ',i)
+    if plan_act is not None:
+        for i in plan_act:
+            SSR.running_action_group(i, 1)
+            print('\t action= ',i)
 def setcamera(state):
     global check
     if check==0:
@@ -121,14 +122,17 @@ def setcamera(state):
             PWMServo.setServo(2, 1500, 500)
             #time.sleep(0.6)
     elif check==1:
+        print('check',check)
         PWMServo.setServo(1, 2100, 500)
-        PWMServo.setServo(2, 500, 500)
+        PWMServo.setServo(2, 1200, 500)
         check=2
     elif check==2:
+        print('check',check)
         PWMServo.setServo(1, 2100, 500)
-        PWMServo.setServo(2, 1000, 500)
+        PWMServo.setServo(2, 1700, 500)
         check=3
     else:
+        print('check',check)
         PWMServo.setServo(1, 2100, 500)
         #time.sleep(0.6)
         PWMServo.setServo(2, 1500, 500)
@@ -198,23 +202,12 @@ def plan2(data):
     if leftbrink:
         rightflag = 1
         print('find the left line')
-        theta=getvertheta(data['track'],left=1)
-        if np.abs(theta)<THETA_VER_THRESHOLD:
-            plan_act.append('custom/move_right_bit')
-        else:
-            plan_act.append('custom/move_right_bit')
-            plan_act.append('custom/turn_to_right')
-        print('find the left line,theta is: ',theta)
+        plan_act.append('custom/move_right_bit')
         line_judge = 1
     if rightbrink:
         rightflag = 0
-        theta=getvertheta(data['track'],left=0)
-        if np.abs(theta)<THETA_VER_THRESHOLD:
-            plan_act.append('custom/move_left_bit')
-        else:
-            plan_act.append('custom/move_left_bit')
-            plan_act.append('custom/turn_to_left')
-        print('find the right line,theta is: ',theta)
+        print('find the left line')
+        plan_act.append('custom/move_left_bit')
         line_judge = 1
     # landmine judge
     if (len(data['landmine']) > 0):
@@ -248,22 +241,47 @@ def plan3(data):
         plan_act.append('custom/145')
         somersault = 1
     elif theta<0:
-        print('need to turn to left')
-        plan_act.append('custom/turn_to_left')
-    else:
         print('need to turn to right')
         plan_act.append('custom/turn_to_right')
+        plan_act.append('custom/walk')
+        plan_act.append('custom/145')
+        somersault = 1
+    else:
+        print('need to turn to left')
+        plan_act.append('custom/turn_to_left')
+        plan_act.append('custom/walk')
+        plan_act.append('custom/145')
+        somersault = 1
     return plan_act
   
 def plan4(data):
     plan_act=[]
     yellow=0
     plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+    plan_act.append('custom/pa')
+            
     #if not data['block']:
     #    print('block:  0')
     #    plan_act.append('custom/walk')
     #else:
     #    print('block:  1')
+    return plan_act
   
 def plancheck(data):
     plan_act=[]
@@ -285,6 +303,7 @@ def plancheck(data):
     plan_act=[]
     global leftdata
     global rightdata
+    print('go to the check stageS')
     if 'ditch' not in data:
         if 'ditch' in leftdata:
             plan_act.append('custom/turn_to_left')

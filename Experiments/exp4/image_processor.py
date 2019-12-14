@@ -285,6 +285,7 @@ class ImageProcessor(object):
 
         info = dict()
         info['light'] = []
+
         # %% 识别信号灯
         keys_light = {'red', 'green', 'yellow'}
         contours_light = {key: value for key,
