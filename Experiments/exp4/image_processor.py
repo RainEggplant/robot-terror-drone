@@ -274,8 +274,6 @@ class ImageProcessor(object):
 
         info = dict()
         info['light'] = []
-        info['track'] = []
-        info['track_next'] = []
         info['landmine'] = []
         # %% 识别信号灯
         keys_light = {'red', 'green', 'yellow'}
