@@ -7,7 +7,7 @@ import cv2
 
 # %% 常数定义
 CV_VERSION = cv2.__version__.split('.')[0]  # pylint: disable=no-member
-USE_CLAHE = False
+USE_CLAHE = True
 IMG_WIDTH = 320
 IMG_HEIGHT = 240
 FRONT_THRESHOLD = 200
@@ -15,21 +15,22 @@ LEFT_THRESHOLD = 50
 RIGHT_THRESHOLD = 50
 LANDMINE_SOLIDITY_THRESHOLD = 0.8
 LANDMINE_AREA_RATIO_THRESHOLD = 0.6
-BRINK_SOLIDITY_THRESHOLD = 0.6
-BRINK_AREA_RATIO_THRESHOLD = 0.5
+BRINK_SOLIDITY_THRESHOLD = 0.5
+BRINK_AREA_THRESHOLD = 300
+BRINK_AREA_RATIO_THRESHOLD = 0.05
 BRINK_ANGLE_DELTA = 45
-POSSIBLE_TRACK_SOLIDITY_THRESHOLD = 0.6
+POSSIBLE_TRACK_SOLIDITY_THRESHOLD = 0.5
 CANDIDATE_TRACK_SOLIDITY_THRESHOLD = 0.8
 CANNY_MIN_THRESHOLD = 50
 CANNY_MAX_THRESHOLD = 400
 TOP_LINE = int(0.01 * IMG_HEIGHT)
 BOTTOM_LINE = int(0.99 * IMG_HEIGHT)
-MIN_CONTOUR_AREA = {'white': 3000, 'red': 5000,
+MIN_CONTOUR_AREA = {'white': 2000, 'red': 5000,
                     'green': 5000, 'yellow': 5000, 'black': 150}
-MIN_TRACK_BRINK_DISTANCE = -10
+MIN_TRACK_BRINK_DISTANCE = -25
 
 # 检视平面坐标点
-XT_SCAN = np.arange(0.1 * IMG_WIDTH, IMG_WIDTH, 0.2 * IMG_WIDTH).astype(int)
+XT_SCAN = np.arange(0.1 * IMG_WIDTH, IMG_WIDTH, 0.1 * IMG_WIDTH).astype(int)
 YT_TOP = int(0.01 * IMG_HEIGHT)
 YT_BOTTOM = int(0.99 * IMG_HEIGHT)
 
@@ -57,6 +58,7 @@ class ImageProcessor(object):
         self._cap = cv2.VideoCapture(stream)
         self._debug = debug
         self._disposed = False
+        self._refresh = False
         self.monitor = None
         # self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
@@ -66,6 +68,10 @@ class ImageProcessor(object):
             self._cap_thread = threading.Thread(target=self._get_frame)
             self._cap_thread.setDaemon(True)
             self._cap_thread.start()
+            self._monitor_thread = threading.Thread(
+                target=self._refresh_monitor)
+            self._monitor_thread.setDaemon(True)
+            self._monitor_thread.start()
         else:
             raise RuntimeError('Cannot open camera')
 
@@ -81,8 +87,12 @@ class ImageProcessor(object):
             time.sleep(0.005)
 
     def _refresh_monitor(self):
-        cv2.imshow("Monitor", self.monitor)
-        cv2.waitKey(1)
+        while not self._disposing.is_set() and self._cap.isOpened():
+            if self._refresh:
+                self._refresh = False
+                cv2.imshow("Monitor", self.monitor)
+                cv2.waitKey(1)
+                time.sleep(0.005)
 
     @staticmethod
     def _preprocess_image(image):
@@ -125,10 +135,10 @@ class ImageProcessor(object):
             # 注意此处 OpenCV 3 的返回值是三元元组
             if CV_VERSION == '3':
                 (_, contours[i], _) = cv2.findContours(
-                    mask_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 找出轮廓
+                    mask_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
             else:
                 (contours[i], _) = cv2.findContours(
-                    mask_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 找出轮廓
+                    mask_color, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
 
             # 取面积高于阈值的轮廓
             contours[i] = list(filter(
@@ -143,7 +153,7 @@ class ImageProcessor(object):
         hull_area = cv2.contourArea(hull)
         solidity = area / hull_area
         area_ratio_circle = None
-        area_ratio_rect = None
+        area_ratio_ellipse = None
         angle = None
 
         if color == 'black':
@@ -156,17 +166,17 @@ class ImageProcessor(object):
                         print('landmine: area {}, solidity {:.3f}, area_ratio {:.3f}'.format(
                             area, solidity, area_ratio_circle))
                     return 'landmine'
-            if solidity >= BRINK_SOLIDITY_THRESHOLD:
-                rect = cv2.minAreaRect(contour)
-                area_ratio_rect = area / (rect[1][0] * rect[1][1])
-                angle = rect[2]
-                angle = angle + 180 if rect[1][0] < rect[1][1] else angle + 90
-                # 只选取接近水平的边缘
-                if (area_ratio_rect >= BRINK_AREA_RATIO_THRESHOLD and
+            if solidity >= BRINK_SOLIDITY_THRESHOLD and area > BRINK_AREA_THRESHOLD:
+                center, axes_len, angle = cv2.fitEllipse(contour)
+                area_ratio_ellipse = area / \
+                    (math.pi * axes_len[0] * axes_len[1] / 4)
+
+                # 只选取角度接近水平的边缘
+                if (area_ratio_ellipse >= BRINK_AREA_RATIO_THRESHOLD and
                         90 - BRINK_ANGLE_DELTA < angle < 90 + BRINK_ANGLE_DELTA):
                     if self._debug:
-                        print('brink: area {}, solidity {:.3f}, area_ratio {:.3f}, angle {:.3f}'.format(
-                            area, solidity, area_ratio_rect, angle))
+                        print('brink: area {}, solidity {:.3f}, area_ratio_ellipse {:.3f}, angle {:.3f}'.format(
+                            area, solidity, area_ratio_ellipse, angle))
                     return 'brink'
 
             if self._debug:
@@ -175,9 +185,10 @@ class ImageProcessor(object):
                 if area_ratio_circle is not None:
                     prompt_unknown = prompt_unknown + \
                         ', area_ratio_circle {:.3f}'.format(area_ratio_circle)
-                if area_ratio_rect is not None:
+                if area_ratio_ellipse is not None:
                     prompt_unknown = prompt_unknown + \
-                        ', area_ratio_rect {:.3f}'.format(area_ratio_rect)
+                        ', area_ratio_ellipse {:.3f}'.format(
+                            area_ratio_ellipse)
                 if angle is not None:
                     prompt_unknown = prompt_unknown + \
                         ', angle {:.3f}'.format(angle)
@@ -274,7 +285,7 @@ class ImageProcessor(object):
 
         info = dict()
         info['light'] = []
-        info['landmine'] = []
+
         # %% 识别信号灯
         keys_light = {'red', 'green', 'yellow'}
         contours_light = {key: value for key,
@@ -309,6 +320,7 @@ class ImageProcessor(object):
         # %% 识别地雷和边缘
         brink_cur = []
         brink_next = []
+        info['landmine'] = []
         for contour in contours['black']:
             object_type = self._determine_object_type(contour, 'black')
             if track_cur is not None and object_type == 'landmine':
@@ -320,64 +332,56 @@ class ImageProcessor(object):
                     info['landmine'].append(bottom_most)
 
             elif object_type == 'brink':
-                rect = cv2.minAreaRect(contour)
-                box = cv2.boxPoints(rect)
-                box = np.int0(box)
-                bottom_most = tuple(
-                    box[np.argmax(box[:, 1])])  # pylint: disable=unsubscriptable-object
-                top_most = tuple(box[np.argmin(box[:, 1])]  # pylint: disable=unsubscriptable-object
-                                 )
+                ellipse = cv2.fitEllipse(contour)
+                center, axes_len, angle = ellipse
+                long_axis = max(axes_len)
+                angle_rad = angle / 180 * math.pi
+                vx, vy = math.sin(angle_rad), -math.cos(angle_rad)
+                t_x1 = -center[0] / vx
+                t_x2 = (IMG_WIDTH - 1 - center[0]) / vx
+                if t_x1 > t_x2:
+                    t_x1, t_x2 = t_x2, t_x1
 
-                # 仅保留和当前和下一个赛道接近，或者接近图像上下两端的边缘
+                if angle == 90:
+                    t_y1 = -long_axis / 2
+                    t_y2 = t_y1
+                else:
+                    t_y1 = -center[1] / vy
+                    t_y2 = (IMG_HEIGHT - 1 - center[1]) / vy
+                    if t_y1 > t_y2:
+                        t_y1, t_y2 = t_y2, t_y1
+
+                t1 = max(t_x1, t_y1, -long_axis / 2)
+                t2 = min(t_x2, t_y2, long_axis / 2)
+                t_center = (t1 + t2) / 2
+                x = center[0] + t_center * vx
+                y = center[1] + t_center * vy
+
                 if track_cur is not None:
                     distance_cur = cv2.pointPolygonTest(
-                        track_cur, bottom_most, True)
+                        track_cur, (x, y), True)
                 else:
-                    distance_cur = bottom_most[1] - (IMG_HEIGHT - 1)
+                    distance_cur = y - (IMG_HEIGHT - 1)
 
                 if track_next is not None:
                     distance_next = cv2.pointPolygonTest(
-                        track_next, top_most, True)
+                        track_next, (x, y), True)
                 else:
-                    distance_next = -top_most[1]
+                    distance_next = -y
 
                 if distance_cur > MIN_TRACK_BRINK_DISTANCE:
-                    brink_cur.append(rect)
+                    brink_cur.append(ellipse)
                 elif distance_next > MIN_TRACK_BRINK_DISTANCE:
-                    brink_next.append(rect)
+                    brink_next.append(ellipse)
 
         # %% 判断沟壑
         if ((track_cur is not None or track_next is not None) and
                 len(brink_cur) > 0 and len(brink_next) > 0):
-            rect_cur = max(brink_cur, key=lambda r: r[0][1])
-            rect_next = min(brink_next, key=lambda r: r[0][1])
-            box_cur = cv2.boxPoints(rect_cur)
-            box_next = cv2.boxPoints(rect_next)
-
-            # 提取下方矩形边界靠下的端点，转换为直线
-            distance_left = [x**2 + (y - IMG_HEIGHT + 1)
-                             ** 2 for x, y in box_cur]
-            distance_right = [(x - IMG_WIDTH + 1)**2 +
-                              (y - IMG_HEIGHT + 1)**2 for x, y in box_cur]
-            x1, y1 = box_cur[np.argmin(distance_left)]
-            x2, y2 = box_cur[np.argmin(distance_right)]
-            y_bt1 = int((-x2 * y1 + x1 * y2) / (x1 - x2))
-            y_bt2 = int(((IMG_WIDTH - 1 - x2) * y1 -
-                         (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
-
-            # 提取上方矩形边界靠上的端点，转换为直线
-            distance_left = [x**2 + y**2 for x, y in box_next]
-            distance_right = [(x - IMG_WIDTH + 1)**2 +
-                              y**2 for x, y in box_next]
-            x1, y1 = box_next[np.argmin(distance_left)]
-            x2, y2 = box_next[np.argmin(distance_right)]
-            y_top1 = int((-x2 * y1 + x1 * y2) / (x1 - x2))
-            y_top2 = int(((IMG_WIDTH - 1 - x2) * y1 -
-                          (IMG_WIDTH - 1 - x1) * y2) / (x1 - x2))
-
-            ditch = np.array([[IMG_WIDTH - 1, y_bt2], [0, y_bt1],
-                              [0, y_top1], [IMG_WIDTH - 1, y_top2]])
-            monitor = cv2.drawContours(monitor, [ditch], 0, (0, 0, 255), 2)
+            elp_cur = max(brink_cur, key=lambda e: e[1][0] * e[1][1])
+            elp_next = max(brink_next, key=lambda e: e[1][0] * e[1][1])
+            ditch = [elp_cur, elp_next]
+            monitor = cv2.ellipse(monitor, elp_cur, (0, 0, 255), 2)
+            monitor = cv2.ellipse(monitor, elp_next, (0, 0, 255), 2)
             info['ditch'] = ditch
 
         # 判断开合门
@@ -429,7 +433,7 @@ class ImageProcessor(object):
                 info['block'] = True
 
         self.monitor = monitor
-        self._refresh_monitor()
+        self._refresh = True
 
         return info
 
