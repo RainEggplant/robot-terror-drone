@@ -57,6 +57,7 @@ class ImageProcessor(object):
         self._cap = cv2.VideoCapture(stream)
         self._debug = debug
         self._disposed = False
+        self._refresh = False
         self.monitor = None
         # self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
@@ -66,6 +67,10 @@ class ImageProcessor(object):
             self._cap_thread = threading.Thread(target=self._get_frame)
             self._cap_thread.setDaemon(True)
             self._cap_thread.start()
+            self._monitor_thread = threading.Thread(
+                target=self._refresh_monitor)
+            self._monitor_thread.setDaemon(True)
+            self._monitor_thread.start()
         else:
             raise RuntimeError('Cannot open camera')
 
@@ -81,8 +86,12 @@ class ImageProcessor(object):
             time.sleep(0.005)
 
     def _refresh_monitor(self):
-        cv2.imshow("Monitor", self.monitor)
-        cv2.waitKey(1)
+        while not self._disposing.is_set() and self._cap.isOpened():
+            if self._refresh:
+                self._refresh = False
+                cv2.imshow("Monitor", self.monitor)
+                cv2.waitKey(1)
+                time.sleep(0.005)
 
     @staticmethod
     def _preprocess_image(image):
@@ -431,7 +440,7 @@ class ImageProcessor(object):
                 info['block'] = True
 
         self.monitor = monitor
-        self._refresh_monitor()
+        self._refresh = True
 
         return info
 
